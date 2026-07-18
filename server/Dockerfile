@@ -15,14 +15,21 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/tome ./cmd/tome/
 
 FROM alpine:3.21
-RUN apk add --no-cache chromium ca-certificates tzdata \
+RUN apk add --no-cache chromium ca-certificates tzdata su-exec \
       font-liberation ttf-dejavu fontconfig \
-    && adduser -D tome
+    && adduser -D tome \
+    && mkdir -p /data && chown tome:tome /data
 COPY --from=build /out/tome /usr/local/bin/tome
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-USER tome
+# The entrypoint starts as root only to chown the /data volume (runtimes like
+# Apple's `container` mount named volumes root-owned), then drops to "tome".
 ENV TOME_CHROME=/usr/bin/chromium-browser \
     TOME_CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage" \
-    TOME_PORT=8080
+    TOME_PORT=8080 \
+    TOME_DATA_DIR=/data
+VOLUME /data
 EXPOSE 8080
-ENTRYPOINT ["tome"]
+ENTRYPOINT ["entrypoint.sh"]
+CMD ["serve"]

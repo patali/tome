@@ -20,30 +20,46 @@ function send(msg) {
   });
 }
 
-// Reflect server availability; disable "Send to Kindle" when it's down.
+var settingsEl = document.getElementById("settings");
+var signedOutEl = document.getElementById("acct-signedout");
+var signedInEl = document.getElementById("acct-signedin");
+var acctInfoEl = document.getElementById("acct-info");
+
+// Reflect server + account state; "Send to Kindle" needs both.
 function refreshStatus() {
   send({ type: "ping" }).then(function (s) {
-    if (s.up) {
-      dotEl.className = "dot up";
-      var via = s.method === "smtp" ? "sends via SMTP"
-              : s.method === "mail-app" ? "opens Mail.app"
-              : "Kindle not configured";
-      serverText.textContent = "server up · " + via;
-      serverText.className = "";
-      kindleBtn.disabled = !s.kindleConfigured;
-      if (s.kindleConfigured) {
-        kindleBtn.textContent = s.method === "mail-app" ? "Send to Kindle (via Mail)" : "Send to Kindle";
-        kindleBtn.title = "→ " + (s.kindleEmail || "");
-      } else {
-        kindleBtn.title = "Set TOME_* env vars and restart the server";
-      }
-    } else {
+    signedOutEl.hidden = !(s.up && !s.signedIn);
+    signedInEl.hidden = !(s.up && s.signedIn);
+
+    if (!s.up) {
       dotEl.className = "dot down";
       serverText.textContent = "server down · " + (s.url || "").replace(/^https?:\/\//, "");
       serverText.className = "muted";
       kindleBtn.disabled = true;
       kindleBtn.title = "Start the Tome server (or fix the URL in Server settings)";
+      return;
     }
+    if (!s.signedIn) {
+      dotEl.className = "dot";
+      serverText.textContent = s.badKey ? "server up · stored key rejected" : "server up · sign-in required";
+      serverText.className = "";
+      kindleBtn.disabled = true;
+      kindleBtn.title = "Redeem an invite or paste your API key in Server settings";
+      settingsEl.open = true;
+      return;
+    }
+    dotEl.className = "dot up";
+    var via = s.deliveryMethod === "resend" ? "sends via email"
+            : s.deliveryMethod === "mail-app" ? "opens Mail.app"
+            : "delivery not configured";
+    serverText.textContent = s.email + " · " + via;
+    serverText.className = "";
+    acctInfoEl.textContent = s.email + " → " + (s.kindleEmail || "");
+    kindleBtn.disabled = s.deliveryMethod === "none";
+    kindleBtn.textContent = s.deliveryMethod === "mail-app" ? "Send to Kindle (via Mail)" : "Send to Kindle";
+    kindleBtn.title = kindleBtn.disabled
+      ? "Ask the admin to configure Resend delivery"
+      : "→ " + (s.kindleEmail || "");
   });
 }
 refreshStatus();
@@ -56,6 +72,43 @@ var noteEl = document.getElementById("settings-note");
 
 chrome.storage.sync.get({ serverUrl: "http://localhost:8080" }, function (v) {
   urlInput.value = v.serverUrl;
+});
+
+function note(text, cls) {
+  noteEl.textContent = text;
+  noteEl.className = cls || "muted";
+}
+
+document.getElementById("redeem").addEventListener("click", async function () {
+  var code = document.getElementById("invite-code").value.trim();
+  var email = document.getElementById("acct-email").value.trim();
+  var kindle = document.getElementById("acct-kindle").value.trim();
+  if (!code || !email || !kindle) { note("Fill in code, email, and Kindle address.", "err"); return; }
+  note("Redeeming…");
+  var r = await send({ type: "acceptInvite", code: code, email: email, kindleEmail: kindle });
+  if (r.error) { note(r.error, "err"); return; }
+  note(r.approvedSender
+    ? "Welcome! Add " + r.approvedSender + " to your Amazon approved senders."
+    : "Welcome, " + r.email + "!", "ok");
+  refreshStatus();
+});
+
+document.getElementById("save-key").addEventListener("click", async function () {
+  var key = document.getElementById("api-key-input").value.trim();
+  if (!key) { note("Paste an API key first.", "err"); return; }
+  note("Checking key…");
+  var r = await send({ type: "setApiKey", apiKey: key });
+  if (r.error) { note(r.error, "err"); return; }
+  document.getElementById("api-key-input").value = "";
+  note("Signed in as " + r.email + ".", "ok");
+  refreshStatus();
+});
+
+document.getElementById("signout").addEventListener("click", async function (e) {
+  e.preventDefault();
+  await send({ type: "signOut" });
+  note("Signed out.");
+  refreshStatus();
 });
 
 saveBtn.addEventListener("click", function () {

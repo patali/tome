@@ -23,10 +23,15 @@
   details { margin-top: 12px; font-size: 12px; }
   summary { cursor: pointer; color: #888; }
   .row { display: flex; gap: 6px; margin-top: 8px; }
-  .row input { flex: 1; min-width: 0; padding: 6px 8px; font: inherit;
+  .row input, .stack input { flex: 1; min-width: 0; padding: 6px 8px; font: inherit;
     border: 1px solid #888; border-radius: 6px; background: inherit; color: inherit; }
   .row button { width: auto; margin: 0; padding: 6px 10px; font-weight: 600; }
   #settings-note { margin-top: 6px; min-height: 14px; }
+  .stack input { display: block; width: 100%; box-sizing: border-box; margin-top: 8px; }
+  .stack button { margin-top: 8px; }
+  .divider { margin: 12px 0 4px; color: #888; font-weight: 600; }
+  #account a { color: inherit; }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -41,6 +46,26 @@
       <input id="server-url" type="text" placeholder="http://localhost:8080"
              aria-label="Server URL" spellcheck="false">
       <button id="save-server">Save</button>
+    </div>
+    <div id="account">
+      <div id="acct-signedout" hidden>
+        <div class="divider">Account</div>
+        <div class="stack">
+          <input id="invite-code" placeholder="Invite code (tomeinv_…)" spellcheck="false">
+          <input id="acct-email" type="email" placeholder="Your email">
+          <input id="acct-kindle" type="email" placeholder="you@kindle.com">
+          <button id="redeem" class="primary">Redeem invite</button>
+        </div>
+        <div class="row">
+          <input id="api-key-input" type="password" placeholder="…or paste an API key" spellcheck="false">
+          <button id="save-key">Use</button>
+        </div>
+      </div>
+      <div id="acct-signedin" hidden>
+        <div class="divider">Account</div>
+        <div id="acct-info"></div>
+        <div><a href="#" id="signout">Sign out</a></div>
+      </div>
     </div>
     <div id="settings-note" class="muted"></div>
   </details>

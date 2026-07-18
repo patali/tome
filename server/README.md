@@ -1,132 +1,162 @@
-# Tome — Local Server
+# Tome — Server
 
-Receives an extracted X article (from the browser extension) and renders it into a
+Receives an extracted article (from the browser extension) and renders it into a
 Kindle-friendly document — **PDF by default** (device-accurate, e-ink-optimized) or
-**EPUB** — returned as a download or emailed to your Kindle via Send-to-Kindle.
+**EPUB** — returned as a download or emailed to the user's Kindle.
+
+The server is **multi-user and invite-only**: every request (except `/status`
+and invite redemption) needs a per-user API key, each user has their own Kindle
+address, and the admin manages invites, users, and email settings through a
+JSON API / the `tome admin` CLI. There is no anonymous mode.
 
 > **PDF** is rendered by driving **headless Chrome** over the extracted HTML
-> (`--print-to-pdf` at the device page size). A real browser fetches images and
-> honors the reader CSS, so images embed, tables render, and HTML entities work.
-> Chrome renders the *local* extracted HTML — **it never visits x.com**, so no X
-> login is involved; only public `pbs.twimg.com` images and fonts load.
->
-> **EPUB** (pure-Go `go-shiori/go-epub`) is the fallback when no Chrome-family
-> browser is installed. Set `TOME_CHROME` to point at a specific binary.
+> (`--print-to-pdf` at the device page size). Chrome renders the *local*
+> extracted HTML — **it never visits the source site**, so no login is involved.
+> **EPUB** (pure-Go) is the fallback when no Chrome-family browser is installed
+> (set `TOME_CHROME` to point at a specific binary).
 
-## Run
+## Quick start (self-host container)
 
-```bash
-cd server
-go run ./cmd/tome/     # listens on http://localhost:8080
-```
-
-`/convert` works immediately. `/send-to-kindle` needs the SMTP env vars below.
-
-## Run in a container (self-host)
-
-The [`Dockerfile`](Dockerfile) builds a self-contained image with Chromium
-bundled, so PDF rendering works with zero host dependencies. Works with Docker
-or [Apple's `container`](https://github.com/apple/container) tool
+Works with Docker or [Apple's `container`](https://github.com/apple/container)
 (`brew install container`, then `container system start` once):
 
 ```bash
 cd server
-container build -t tome .                 # or: docker build -t tome .
-container run --detach --name tome -p 8080:8080 tome
+container build -t tome .                    # or: docker build -t tome .
+container volume create tome-data            # docker: volume is created implicitly
+container run --detach --name tome -p 8080:8080 -v tome-data:/data tome
 ```
 
-Pass SMTP config with `-e` / `--env` flags to enable Send-to-Kindle:
+Bootstrap your admin account (prints your API key **once** — save it):
 
 ```bash
-container run --detach --name tome -p 8080:8080 \
-  -e TOME_KINDLE_EMAIL=your-kindle@kindle.com \
-  -e TOME_SENDER_EMAIL=you@gmail.com \
-  -e TOME_SMTP_USERNAME=you@gmail.com \
-  -e TOME_SMTP_PASSWORD=app-password \
-  tome
+container exec -u tome tome tome init-admin \
+  --email you@example.com --kindle you@kindle.com
+export TOME_ADMIN_KEY=tome_…                 # from the output
 ```
 
-If the server runs on another machine or port, point the extension at it:
-popup → **Server settings** → enter the URL → **Save** (the extension asks for
-permission to reach that origin).
+Configure email delivery ([Resend](https://resend.com) — needs an API key and a
+verified sending domain):
 
-Container notes:
-- **Delivery is SMTP-only** inside a container — the macOS Mail.app fallback
-  needs the host. Without SMTP vars, `/convert` works and `/send-to-kindle`
-  reports `"none"`.
-- Chromium runs with `--no-sandbox --disable-dev-shm-usage` (set via
-  `TOME_CHROME_FLAGS` in the image) — required in containers.
-- **Apple `container` on macOS 26**: host↔container traffic rides vmnet, which
-  macOS gates behind the **Local Network** privacy permission. If
-  `curl localhost:8080/status` hangs while `container exec tome wget -qO- localhost:8080/status`
-  works, grant Local Network access to your terminal app (System Settings →
-  Privacy & Security → Local Network) and restart the runtime
-  (`container system stop && container system start`). VPNs (Tailscale, WARP)
-  are also known to interfere with vmnet routing.
+```bash
+go run ./cmd/tome admin settings set \
+  --resend-api-key re_xxxxxxxx --resend-from tome@yourdomain.com
+# (or build the binary once: go build -o tome ./cmd/tome)
+```
+
+Invite a friend:
+
+```bash
+tome admin invites create --email friend@example.com --send   # emails them the code via Resend
+tome admin invites create                                     # …or just print a code to share
+```
+
+They install the extension, set the server URL in the popup, and redeem the
+code with their email + `@kindle.com` address — that's the whole signup.
+
+> **Everyone** (you included) must add the `--resend-from` address to their
+> Amazon **Approved Personal Document E-mail List** (amazon.com → Content &
+> Devices → Preferences → Personal Document Settings), or Amazon silently
+> rejects the deliveries.
+
+## Run from source (no container)
+
+```bash
+cd server
+go run ./cmd/tome            # serve on :8080, data in ./data (TOME_DATA_DIR)
+go run ./cmd/tome init-admin --email you@example.com --kindle you@kindle.com
+```
+
+Accounts are still required — paste the printed admin key into the extension.
 
 ## Delivery methods
 
-`/send-to-kindle` picks one automatically (see it in `GET /status` → `method`):
+Per user, resolved per request:
 
-- **`smtp`** — all SMTP env vars set → emails the EPUB directly.
-- **`mail-app`** — macOS only, SMTP not set → opens **Mail.app** with the EPUB
-  attached and the Kindle address filled in; you review and hit **Send**. First use
-  may trigger a macOS prompt to allow controlling Mail. The Kindle address defaults
-  to `spatali.scribe@kindle.com` (override with `TOME_KINDLE_EMAIL`).
-- **`none`** — not on macOS and no SMTP → `/convert` still returns the EPUB.
+- **`resend`** — the admin configured Resend → the PDF is emailed straight to
+  the authed user's own Kindle address.
+- **`mail-app`** — no Resend, server on macOS, **admin only**: opens Mail.app
+  with the file attached for review. (Convenience for the single-machine setup.)
+- **`none`** — otherwise; `/convert` still works, `/send-to-kindle` returns 502.
 
-Either way, the account that actually sends must be an Amazon **approved sender**.
+## Admin CLI
 
-## Configure Send-to-Kindle (SMTP, optional)
+`tome admin` is a thin client for the HTTP admin API — run it from anywhere
+that can reach the server (env: `TOME_SERVER_URL`, `TOME_ADMIN_KEY`):
 
-```bash
-export TOME_KINDLE_EMAIL="your-kindle@kindle.com"
-export TOME_SENDER_EMAIL="you@gmail.com"   # must be an Amazon "approved sender"
-export TOME_SMTP_USERNAME="you@gmail.com"
-export TOME_SMTP_PASSWORD="app-password"   # Gmail: an App Password, not your login
-# optional: TOME_SMTP_HOST (smtp.gmail.com), TOME_SMTP_PORT (587), TOME_PORT (8080)
+```
+tome admin invites create [--email HINT] [--ttl 168h] [--send]
+tome admin invites list | invites delete CODE
+tome admin users list | users disable ID | users enable ID | users rotate-key ID
+tome admin settings get | settings set [--resend-api-key K] [--resend-from ADDR]
 ```
 
-Add your sender address to **Amazon → Manage Your Content and Devices →
-Preferences → Personal Document Settings → Approved Personal Document E-mail List**,
-and find your `@kindle.com` address on the same page.
+Lost the admin key? `container exec -u tome tome tome init-admin --rotate-key`.
 
 ## Endpoints
 
-| Method | Path | Body | Response |
+Auth is `Authorization: Bearer tome_…`. Errors are always `{ "error": "…" }`.
+
+| Method | Path | Auth | Notes |
 |---|---|---|---|
-| `GET` | `/status` | — | `{ ok, kindleConfigured, method, defaultFormat, pdfAvailable }` |
-| `POST` | `/convert` | article JSON | rendered file (PDF or EPUB) |
-| `POST` | `/send-to-kindle` | article JSON | `{ ok, method, sentTo, filename, bytes }` or `{ error }` |
+| `GET` | `/status` | — | `{ ok, service, version, authRequired, defaultFormat, pdfAvailable }` |
+| `POST` | `/auth/accept-invite` | — (rate-limited) | `{code, email, kindleEmail}` → `{apiKey, …}` — key shown once |
+| `POST` | `/convert` | user | article JSON → rendered file (`?format=pdf\|epub`) |
+| `POST` | `/send-to-kindle` | user | article JSON → `{ ok, method, sentTo, filename, bytes }` |
+| `GET` / `PUT` | `/me` | user | own profile / update own `kindleEmail` |
+| * | `/admin/invites[…]`, `/admin/users[…]`, `/admin/settings` | admin | see CLI above; the Resend API key is write-only (never echoed) |
 
 Article JSON: `{ title, byline, publishedTime, content (HTML), url, device?, format?, css? }`.
 - `device`: `scribe` (default) · `scribe3` · `paperwhite` — sets the PDF page size.
-- `format`: `pdf` (default when Chrome is present) · `epub`. `/convert` also accepts
-  `?format=pdf|epub` as an override.
-- `css`: the reader stylesheet. The extension ships `extension/reader.css` (the
-  **single source of truth** for e-ink typography) in every request, so the PDF
-  renders with exactly the CSS the reader tab shows. When absent (bare curl), the
-  server uses a compact embedded fallback — do not tune typography there.
+- `css`: the reader stylesheet; the extension ships `extension/reader.css` (the
+  single source of truth) in every request. The server's embedded fallback is a
+  compact approximation — don't tune typography there.
 
-## Try it without the extension
+## Environment
 
-```bash
-curl -X POST http://localhost:8080/convert \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"Test","byline":"Me","content":"<p>Hello <a href=\"https://example.com\">world</a>.</p>"}' \
-  -o test.epub
-```
+| Var | Default | Purpose |
+|---|---|---|
+| `TOME_PORT` | `8080` | listen port |
+| `TOME_DATA_DIR` | `./data` (`/data` in the image) | SQLite database location |
+| `TOME_CHROME` | auto-detected | Chrome-family binary for PDF rendering |
+| `TOME_CHROME_FLAGS` | — (`--no-sandbox --disable-dev-shm-usage` in the image) | extra Chrome flags |
+| `TOME_RESEND_BASE_URL` | `https://api.resend.com` | override for testing |
+| `TOME_SERVER_URL`, `TOME_ADMIN_KEY` | — | defaults for the `tome admin` CLI |
+
+Resend credentials are **not** env vars — the admin sets them at runtime
+(`tome admin settings set`) and they live in the database.
+
+## Container notes
+
+- The image bundles Chromium; the entrypoint starts as root only to `chown` the
+  `/data` volume (runtimes like Apple's `container` mount named volumes
+  root-owned), then drops to the unprivileged `tome` user. Use **named volumes**;
+  a bind mount needs a host-side chown.
+- **Apple `container` on macOS 26**: host↔container traffic rides vmnet, which
+  macOS gates behind the **Local Network** privacy permission. If
+  `curl localhost:8080/status` hangs while
+  `container exec tome wget -qO- localhost:8080/status` works, grant Local
+  Network access to your terminal app (System Settings → Privacy & Security →
+  Local Network) and restart the runtime. VPNs (Tailscale, WARP) can also
+  interfere with vmnet routing.
+- Exposing the server to friends over the internet is on you: put it behind
+  HTTPS (reverse proxy, Tailscale Funnel, Cloudflare Tunnel, …) — API keys ride
+  the Authorization header and deserve TLS.
 
 ## Layout
 
 ```
 server/
-├── cmd/tome/main.go   # HTTP server + handlers, CORS for the extension
+├── cmd/tome/            # serve | init-admin | admin (CLI over the admin API)
 └── internal/
-    ├── article/              # the request payload type + title-based filename
-    ├── pdfgen/               # Article -> PDF via headless Chrome (default)
-    ├── epubgen/              # Article -> EPUB fallback (HTML normalized to XHTML)
-    └── kindle/               # SMTP / Mail.app delivery + env config
+    ├── api/             # HTTP surface: public, authed, admin routes; CORS
+    ├── auth/            # API keys, Bearer middleware, invite rate limiter
+    ├── store/           # SQLite (pure Go): users, invites, settings
+    ├── resend/          # minimal Resend API client (delivery + invite emails)
+    ├── article/         # the request payload type + title-based filename
+    ├── pdfgen/          # Article -> PDF via headless Chrome (default)
+    ├── epubgen/         # Article -> EPUB fallback
+    └── kindle/          # macOS Mail.app hand-off (admin fallback)
 ```
 
 ## Known limitations
@@ -134,8 +164,5 @@ server/
 - **PDF is fixed-layout** (device page size), not reflowable — great for Scribe,
   less ideal for the 6.8" Paperwhite; use `format=epub` there if you prefer reflow.
 - **Grayscale is a CSS `filter`** in the render, not a true image conversion.
-- **Auth-protected images**: `pbs.twimg.com` media is public, but if X ever serves an
-  image that needs the session, the fix is to have the extension inline images as data
-  URIs from the already-authenticated DOM before POSTing.
-- Headless Chrome renders the PDF but sometimes doesn't self-exit on macOS; the server
-  polls for the finished file and then kills the process group.
+- Headless Chrome renders the PDF but sometimes doesn't self-exit on macOS; the
+  server polls for the finished file and then kills the process group.

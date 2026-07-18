@@ -27,27 +27,33 @@ Browser (you, logged in)          Local Go server (:8080)
 
 1. **Load the extension** — `arc://extensions` (or `chrome://extensions`) →
    Developer mode → *Load unpacked* → the [`extension/`](extension/) folder.
-2. **Run the server** — `cd server && go run ./cmd/tome/`
-   (needs Go and any Chrome-family browser installed).
-3. Open an X article, click the **Tome** toolbar button →
+2. **Run the server** — `cd server && go run ./cmd/tome`
+   (needs Go and any Chrome-family browser installed), then bootstrap your
+   admin account: `go run ./cmd/tome init-admin --email you@example.com
+   --kindle you@kindle.com` (prints your API key once).
+3. In the popup → **Server settings**, paste the API key.
+4. Open an X article, click the **Tome** toolbar button →
    **Send to Kindle** (or **Open reader tab** → `Cmd+P` → Save as PDF).
 
-## Self-host the server (container)
+## Self-host for your friends
 
-The server also ships as a container image with Chromium bundled — no Go or
-browser needed on the machine running it. Works with Docker or
-[Apple's `container`](https://github.com/apple/container):
+Tome is **multi-user and invite-only**: run one server, invite people, and each
+person uses the extension with their own account and Kindle address. Email
+delivery goes through [Resend](https://resend.com) (admin-configured); admin
+work happens through the `tome admin` CLI — no web dashboard to babysit.
 
 ```bash
 cd server
 container build -t tome .      # or: docker build -t tome .
-container run --detach --name tome -p 8080:8080 tome
+container volume create tome-data
+container run --detach --name tome -p 8080:8080 -v tome-data:/data tome
+container exec -u tome tome tome init-admin --email you@example.com --kindle you@kindle.com
+tome admin settings set --resend-api-key re_… --resend-from tome@yourdomain.com
+tome admin invites create --email friend@example.com --send
 ```
 
-Point the extension at it via popup → **Server settings** (any `http(s)://host:port`
-works — localhost, a home server, a NAS). Inside a container, Send-to-Kindle
-delivery is SMTP-only; pass `TOME_*` env vars with `-e`. Details and caveats in
-[`server/README.md`](server/README.md#run-in-a-container-self-host).
+Friends redeem their invite code right in the extension popup. Full setup,
+endpoint docs, and container caveats in [`server/README.md`](server/README.md).
 
 ## Layout
 

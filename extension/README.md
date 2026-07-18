@@ -34,18 +34,21 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 > In the print dialog: **Margins: Default** and enable **Background graphics**
 > so code-block shading prints.
 
-### Send to Kindle setup
+### Sign in (accounts are required)
 
-1. Start the local server: `cd server && go run ./cmd/tome/`.
-2. Set the `TOME_*` env vars (see `server/README.md`) and restart it.
-3. The popup's status line should read **server up · Kindle configured**.
+The server is invite-only; every request needs your API key. In the popup →
+**Server settings**:
 
-### Server settings (custom server URL)
+1. Set the **server URL** (defaults to `http://localhost:8080`) → Save.
+2. Either **redeem an invite** — enter the invite code you were sent, your
+   email, and your `@kindle.com` address — or paste an existing **API key**.
+3. The status line flips to `you@example.com · sends via email` and Send to
+   Kindle unlocks. Don't forget to add the server's sender address (shown after
+   redeeming) to your Amazon approved-senders list.
 
-The server address defaults to `http://localhost:8080`. To use a server running
-elsewhere (a container, home server, NAS): popup → **Server settings** → enter
-the URL → **Save**. Non-localhost origins trigger a one-time browser permission
-prompt (`optional_host_permissions`); the setting syncs via `chrome.storage.sync`.
+The API key is stored in `chrome.storage.local` (never synced); the server URL
+syncs via `chrome.storage.sync`. Non-localhost server origins trigger a one-time
+browser permission prompt (`optional_host_permissions`).
 
 ## Files
 

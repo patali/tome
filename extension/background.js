@@ -28,6 +28,22 @@ async function serverUrl() {
   }
 }
 
+// The API key lives in storage.local (not sync): secrets shouldn't roam
+// between profiles via the browser's sync service.
+async function apiKey() {
+  try {
+    const { apiKey } = await chrome.storage.local.get({ apiKey: "" });
+    return apiKey || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+async function authHeaders() {
+  const key = await apiKey();
+  return key ? { "Authorization": "Bearer " + key } : {};
+}
+
 // Injection order: libraries first, then extractors (any order — priority
 // decides who runs first), dispatcher last via func.
 const EXTRACTOR_FILES = [
@@ -103,24 +119,63 @@ async function sendToKindle(article) {
   article.css = await readerCSS();
   const resp = await fetch((await serverUrl()) + "/send-to-kindle", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: Object.assign({ "Content-Type": "application/json" }, await authHeaders()),
     body: JSON.stringify(article)
   });
+  if (resp.status === 401) throw new Error("Not signed in — open Server settings in the popup.");
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(data.error || ("server returned " + resp.status));
-  return data; // { ok, sentTo, filename, bytes }
+  return data; // { ok, method, sentTo, filename, bytes }
 }
 
+// Two-step status: is the server up, and does our stored key identify us?
 async function serverStatus() {
   const url = await serverUrl();
+  let status;
   try {
     const resp = await fetch(url + "/status", { method: "GET" });
     if (!resp.ok) return { up: false, url };
-    const data = await resp.json();
-    return { up: true, url, kindleConfigured: !!data.kindleConfigured, method: data.method, kindleEmail: data.kindleEmail };
+    status = await resp.json();
   } catch (e) {
     return { up: false, url };
   }
+  const out = { up: true, url, authRequired: !!status.authRequired, signedIn: false, badKey: false };
+  if (!(await apiKey())) return out;
+  try {
+    const resp = await fetch(url + "/me", { headers: await authHeaders() });
+    if (resp.status === 401) { out.badKey = true; return out; }
+    if (!resp.ok) return out;
+    const me = await resp.json();
+    out.signedIn = true;
+    out.email = me.email;
+    out.kindleEmail = me.kindleEmail;
+    out.deliveryMethod = me.deliveryMethod;
+  } catch (e) { /* leave signedIn false */ }
+  return out;
+}
+
+// Redeems an invite (or validates a pasted key) and stores the API key.
+async function acceptInvite(code, email, kindleEmail) {
+  const resp = await fetch((await serverUrl()) + "/auth/accept-invite", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, email, kindleEmail })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || ("server returned " + resp.status));
+  await chrome.storage.local.set({ apiKey: data.apiKey });
+  return { ok: true, email: data.email, approvedSender: data.approvedSender };
+}
+
+async function setApiKey(key) {
+  const resp = await fetch((await serverUrl()) + "/me", {
+    headers: { "Authorization": "Bearer " + key }
+  });
+  if (resp.status === 401) throw new Error("That API key was rejected by the server.");
+  if (!resp.ok) throw new Error("server returned " + resp.status);
+  const me = await resp.json();
+  await chrome.storage.local.set({ apiKey: key });
+  return { ok: true, email: me.email };
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -128,6 +183,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     try {
       if (msg.type === "ping") {
         sendResponse(await serverStatus());
+        return;
+      }
+      if (msg.type === "acceptInvite") {
+        sendResponse(await acceptInvite(msg.code, msg.email, msg.kindleEmail));
+        return;
+      }
+      if (msg.type === "setApiKey") {
+        sendResponse(await setApiKey(msg.apiKey));
+        return;
+      }
+      if (msg.type === "signOut") {
+        await chrome.storage.local.remove("apiKey");
+        sendResponse({ ok: true });
         return;
       }
       if (msg.type === "convert") {
