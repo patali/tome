@@ -22,6 +22,48 @@ go run ./cmd/tome/     # listens on http://localhost:8080
 
 `/convert` works immediately. `/send-to-kindle` needs the SMTP env vars below.
 
+## Run in a container (self-host)
+
+The [`Dockerfile`](Dockerfile) builds a self-contained image with Chromium
+bundled, so PDF rendering works with zero host dependencies. Works with Docker
+or [Apple's `container`](https://github.com/apple/container) tool
+(`brew install container`, then `container system start` once):
+
+```bash
+cd server
+container build -t tome .                 # or: docker build -t tome .
+container run --detach --name tome -p 8080:8080 tome
+```
+
+Pass SMTP config with `-e` / `--env` flags to enable Send-to-Kindle:
+
+```bash
+container run --detach --name tome -p 8080:8080 \
+  -e TOME_KINDLE_EMAIL=your-kindle@kindle.com \
+  -e TOME_SENDER_EMAIL=you@gmail.com \
+  -e TOME_SMTP_USERNAME=you@gmail.com \
+  -e TOME_SMTP_PASSWORD=app-password \
+  tome
+```
+
+If the server runs on another machine or port, point the extension at it:
+popup → **Server settings** → enter the URL → **Save** (the extension asks for
+permission to reach that origin).
+
+Container notes:
+- **Delivery is SMTP-only** inside a container — the macOS Mail.app fallback
+  needs the host. Without SMTP vars, `/convert` works and `/send-to-kindle`
+  reports `"none"`.
+- Chromium runs with `--no-sandbox --disable-dev-shm-usage` (set via
+  `TOME_CHROME_FLAGS` in the image) — required in containers.
+- **Apple `container` on macOS 26**: host↔container traffic rides vmnet, which
+  macOS gates behind the **Local Network** privacy permission. If
+  `curl localhost:8080/status` hangs while `container exec tome wget -qO- localhost:8080/status`
+  works, grant Local Network access to your terminal app (System Settings →
+  Privacy & Security → Local Network) and restart the runtime
+  (`container system stop && container system start`). VPNs (Tailscale, WARP)
+  are also known to interfere with vmnet routing.
+
 ## Delivery methods
 
 `/send-to-kindle` picks one automatically (see it in `GET /status` → `method`):

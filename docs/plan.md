@@ -130,12 +130,22 @@ Current modules: `extractors/x.js` (priority 100) and `extractors/generic.js`
 `EXTRACTOR_FILES` — the reader, server, rendering, and delivery are all
 source-agnostic. See `extension/README.md` → "Adding a new source".
 
+**Containerized server (2026-07-18)**
+`server/Dockerfile` builds a self-contained image (Go build + Alpine Chromium,
+non-root, `TOME_CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage"`). Verified
+with Apple's `container` tool: image builds, `/status` reports `pdfAvailable`,
+and `/convert` renders a real PDF (with a fetched remote image) inside the
+container. Delivery in a container is SMTP-only. Host→container networking on
+macOS 26 requires the Local Network privacy permission (and VPNs can interfere)
+— see `server/README.md`. The extension's server URL is now configurable
+(popup → Server settings, `chrome.storage.sync` + `optional_host_permissions`).
+
 **Next (re-sequenced)**
 1. Image robustness: if a `pbs.twimg.com` image ever needs auth, have the extension
    inline images as **data URIs** from the already-authenticated DOM before POSTing.
 2. Server-side image processing (grayscale, +contrast, sharpen) if Chrome's CSS
    `filter` isn't enough for e-ink.
-3. Extension settings (device, output format, server URL); batch queue.
+3. Extension settings (device, output format — server URL is done); batch queue.
 4. MCP wrapper; threads / Substack sources.
 
 ## Build Phases

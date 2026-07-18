@@ -40,6 +40,13 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 2. Set the `TOME_*` env vars (see `server/README.md`) and restart it.
 3. The popup's status line should read **server up · Kindle configured**.
 
+### Server settings (custom server URL)
+
+The server address defaults to `http://localhost:8080`. To use a server running
+elsewhere (a container, home server, NAS): popup → **Server settings** → enter
+the URL → **Save**. Non-localhost origins trigger a one-time browser permission
+prompt (`optional_host_permissions`); the setting syncs via `chrome.storage.sync`.
+
 ## Files
 
 | File | Role |
