@@ -15,6 +15,12 @@
   button.action { display: block; width: 100%; margin: 0 0 8px; padding: 10px;
     font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid #888;
     background: inherit; color: inherit; }
+  button.action .ico { margin-right: 7px; }
+  /* Icons-only mode: one compact row of square buttons (labels in tooltips). */
+  body.icons-only #actions { display: flex; gap: 8px; }
+  body.icons-only button.action { width: auto; flex: 1; margin: 0; padding: 10px 0; font-size: 19px; }
+  body.icons-only button.action .ico { margin: 0; }
+  body.icons-only button.action .label { display: none; }
   .primary { background: #111; color: #fff; border-color: #111; }
   @media (prefers-color-scheme: dark) { .primary { background: #eee; color: #111; border-color: #eee; } }
   button:disabled { opacity: 0.5; cursor: default; }
@@ -35,9 +41,14 @@
     <button id="gear" title="Tome settings" aria-label="Tome settings">⚙</button>
   </h1>
   <div id="setup-hint" class="muted" hidden>Not connected — <a href="#" id="open-settings">open settings</a> to sign in.</div>
-  <button id="reader" class="action primary">Open preview</button>
-  <button id="kindle" class="action">Send to Kindle</button>
-  <button id="mail" class="action">Send via email</button>
+  <div id="actions">
+    <button id="reader" class="action primary" title="Open preview">
+      <span class="ico">📖</span><span class="label">Open preview</span></button>
+    <button id="kindle" class="action" title="Send to Kindle">
+      <span class="ico">📤</span><span class="label">Send to Kindle</span></button>
+    <button id="mail" class="action" title="Send via email">
+      <span class="ico">✉️</span><span class="label">Send via email</span></button>
+  </div>
   <div id="server"><span class="dot" id="dot"></span><span id="server-text" class="muted">checking server…</span></div>
   <div id="status"></div>
   <script src="popup.js"></script>
