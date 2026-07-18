@@ -24,38 +24,44 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 ## Use
 
 1. Open an X article and **scroll through it once** so images and text load.
-2. Click the **Tome** toolbar button — a small popup opens with two actions:
-   - **Open reader tab** → clean reader page; pick your device in the top-right
-     toolbar, then `Cmd+P` → **Save as PDF**.
-   - **Send to Kindle** → builds a PDF (or EPUB fallback) on the local server and
-     delivers it to your Kindle. Requires the [server](../server/README.md) running;
-     the popup shows a live server-status dot and disables this button when it can't.
+2. Click the **Tome** toolbar button — the popup shows up to three actions
+   (each can be hidden from the settings page, gear icon **⚙**):
+   - **Open preview** → clean reader tab; pick your device in the top-right
+     toolbar, then `Cmd+P` → **Save as PDF**. Works without the server.
+   - **Send to Kindle** → the server renders a PDF and Resend emails it
+     straight to your Kindle address.
+   - **Send via email** → the server opens **Mail.app** with the file attached
+     for review (admin on the server's own Mac only).
 
 > In the print dialog: **Margins: Default** and enable **Background graphics**
 > so code-block shading prints.
 
-### Sign in (accounts are required)
+### Settings page (gear icon ⚙)
 
-The server is invite-only; every request needs your API key. In the popup →
-**Server settings**:
+All configuration lives on the settings page (popup → **⚙**, or the
+extension's Options): server URL, account, and which action buttons the popup
+shows.
+
+Sign-in (accounts are required — the server is invite-only):
 
 1. Set the **server URL** (defaults to `http://localhost:8080`) → Save.
 2. Either **redeem an invite** — enter the invite code you were sent, your
    email, and your `@kindle.com` address — or paste an existing **API key**.
-3. The status line flips to `you@example.com · sends via email` and Send to
-   Kindle unlocks. Don't forget to add the server's sender address (shown after
-   redeeming) to your Amazon approved-senders list.
+3. The popup status flips to your email and the send buttons unlock. Don't
+   forget to add the server's sender address (shown after redeeming) to your
+   Amazon approved-senders list.
 
 The API key is stored in `chrome.storage.local` (never synced); the server URL
-syncs via `chrome.storage.sync`. Non-localhost server origins trigger a one-time
-browser permission prompt (`optional_host_permissions`).
+and button toggles sync via `chrome.storage.sync`. Non-localhost server origins
+trigger a one-time browser permission prompt (`optional_host_permissions`).
 
 ## Files
 
 | File | Role |
 |---|---|
 | `manifest.json` | MV3 manifest. Permissions: `activeTab`, `scripting`, `storage` (page access only for the tab whose button you click); `host_permissions` for `http://localhost/*` (patterns match every port) so the popup can reach the local server. |
-| `popup.html` / `popup.js` | Toolbar popup: **Open reader tab** / **Send to Kindle**, plus a live server-status indicator. |
+| `popup.html` / `popup.js` | Toolbar popup: the action buttons (Open preview / Send to Kindle / Send via email — each toggleable) + live status. |
+| `settings.html` / `settings.js` | The settings page (gear icon): server URL, account (invite redemption / API key / sign-out), popup-button toggles. |
 | `background.js` | Service worker. Injects the extractor modules into the page, dispatches to the highest-priority one that matches, then opens the reader or POSTs to the local server. |
 | `extractors/x.js` | **X (Twitter) article extractor** — reads X's stable `data-testid` landmarks directly (title, byline, date, cover image, sanitized body). |
 | `extractors/generic.js` | Readability fallback for every other page (blogs, news, ...). |

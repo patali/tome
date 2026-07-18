@@ -71,13 +71,15 @@ Accounts are still required — paste the printed admin key into the extension.
 
 ## Delivery methods
 
-Per user, resolved per request:
+Two explicit send actions (the extension shows a button for each, toggleable
+in its settings):
 
-- **`resend`** — the admin configured Resend → the PDF is emailed straight to
-  the authed user's own Kindle address.
-- **`mail-app`** — no Resend, server on macOS, **admin only**: opens Mail.app
-  with the file attached for review. (Convenience for the single-machine setup.)
-- **`none`** — otherwise; `/convert` still works, `/send-to-kindle` returns 502.
+- **Send to Kindle** (`/send-to-kindle`) — Resend emails the file straight to
+  the authed user's own Kindle address. Requires the admin to have configured
+  Resend; 502 otherwise.
+- **Send via email** (`/send-via-mail`) — opens **Mail.app on the server's Mac**
+  with the file attached, addressed to the user's Kindle; you review and hit
+  Send. Admin-only, macOS-only (it's a same-machine convenience).
 
 ## Admin CLI
 
@@ -102,7 +104,8 @@ Auth is `Authorization: Bearer tome_…`. Errors are always `{ "error": "…" }`
 | `GET` | `/status` | — | `{ ok, service, version, authRequired, defaultFormat, pdfAvailable }` |
 | `POST` | `/auth/accept-invite` | — (rate-limited) | `{code, email, kindleEmail}` → `{apiKey, …}` — key shown once |
 | `POST` | `/convert` | user | article JSON → rendered file (`?format=pdf\|epub`) |
-| `POST` | `/send-to-kindle` | user | article JSON → `{ ok, method, sentTo, filename, bytes }` |
+| `POST` | `/send-to-kindle` | user | article JSON → Resend delivery to the user's Kindle; 502 if Resend unset |
+| `POST` | `/send-via-mail` | admin on macOS | article JSON → opens local Mail.app with the file attached |
 | `GET` / `PUT` | `/me` | user | own profile / update own `kindleEmail` |
 | * | `/admin/invites[…]`, `/admin/users[…]`, `/admin/settings` | admin | see CLI above; the Resend API key is write-only (never echoed) |
 
