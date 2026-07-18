@@ -10,6 +10,21 @@ import (
 	"github.com/patali/tome/server/internal/store"
 )
 
+// extensionPath locates the extension bundle served at /extension.zip: a
+// prebuilt zip in the container image, or the source dir when run from the
+// repo (`go run ./cmd/tome` inside server/).
+func extensionPath() string {
+	if p := os.Getenv("TOME_EXTENSION_PATH"); p != "" {
+		return p
+	}
+	for _, p := range []string{"/opt/tome/extension.zip", "../extension"} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 func dataDir() string {
 	if d := os.Getenv("TOME_DATA_DIR"); d != "" {
 		return d
@@ -30,6 +45,7 @@ func runServe(_ []string) {
 	defer st.Close()
 
 	srv := api.New(st, os.Getenv("TOME_RESEND_BASE_URL"))
+	srv.ExtensionPath = extensionPath()
 
 	log.Printf("tome %s listening on http://localhost%s (data: %s)", api.Version, addr, dataDir())
 	if !pdfgen.Available() {

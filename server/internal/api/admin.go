@@ -63,7 +63,7 @@ func (s *Server) adminCreateInvite(w http.ResponseWriter, r *http.Request) {
 
 	emailed := false
 	if req.Send {
-		if err := rc.SendText(req.EmailHint, "You're invited to Tome", inviteEmailBody(inv.Code, rc.From)); err != nil {
+		if err := rc.SendText(req.EmailHint, "You're invited to Tome", inviteEmailBody(inv.Code, rc.From, baseURL(r))); err != nil {
 			// The invite exists either way; report the send failure alongside it.
 			writeJSON(w, http.StatusOK, map[string]any{
 				"code": inv.Code, "emailHint": inv.EmailHint, "expiresAt": inv.ExpiresAt,
@@ -78,23 +78,26 @@ func (s *Server) adminCreateInvite(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func inviteEmailBody(code, from string) string {
+func inviteEmailBody(code, from, base string) string {
 	return fmt.Sprintf(`You've been invited to Tome — send web articles straight to your Kindle.
 
 To join:
 
-1. Install the Tome browser extension (ask the person who invited you for the link).
-2. Click the Tome toolbar button -> Server settings, and set the server URL they gave you.
-3. Enter this invite code with your email and your Kindle address (yourname@kindle.com):
+1. Download the extension and follow the install steps here:
+
+   %s/install
+
+2. In the extension's settings, set the server URL to %s and redeem this
+   invite code with your email and your Kindle address (yourname@kindle.com):
 
    %s
 
-4. Important: add %s to your Amazon "Approved Personal Document E-mail List"
+3. Important: add %s to your Amazon "Approved Personal Document E-mail List"
    (amazon.com -> Manage Your Content and Devices -> Preferences -> Personal
    Document Settings), or Amazon will reject the deliveries.
 
 The code is single-use and expires — redeem it soon.
-`, code, from)
+`, base, base, code, from)
 }
 
 func (s *Server) adminListInvites(w http.ResponseWriter, _ *http.Request) {

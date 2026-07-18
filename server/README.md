@@ -21,9 +21,9 @@ Works with Docker or [Apple's `container`](https://github.com/apple/container)
 (`brew install container`, then `container system start` once):
 
 ```bash
-cd server
-container build -t tome .                    # or: docker build -t tome .
-container volume create tome-data            # docker: volume is created implicitly
+# from the REPO ROOT (the image bundles the extension for self-distribution)
+container build -t tome -f server/Dockerfile .    # or: docker build -t tome -f server/Dockerfile .
+container volume create tome-data                 # docker: volume is created implicitly
 container run --detach --name tome -p 8080:8080 -v tome-data:/data tome
 ```
 
@@ -53,6 +53,14 @@ tome admin invites create                                     # …or just print
 
 They install the extension, set the server URL in the popup, and redeem the
 code with their email + `@kindle.com` address — that's the whole signup.
+
+**The server distributes the extension itself**: point invitees at
+`http://your-server/install` — a step-by-step install guide with a download
+button for `GET /extension.zip` (bundled into the image at build time; when run
+from source, the `extension/` dir is zipped on the fly). Invite emails link to
+it automatically. Chrome blocks off-store one-click installs, so this is the
+"Load unpacked" flow — the manifest pins a key, giving every install the same
+extension ID.
 
 > **Everyone** (you included) must add the `--resend-from` address to their
 > Amazon **Approved Personal Document E-mail List** (amazon.com → Content &
@@ -103,6 +111,8 @@ Auth is `Authorization: Bearer tome_…`. Errors are always `{ "error": "…" }`
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | `GET` | `/status` | — | `{ ok, service, version, authRequired, defaultFormat, pdfAvailable }` |
+| `GET` | `/install` | — | HTML install guide for invitees |
+| `GET` | `/extension.zip` | — | the browser extension, for manual install |
 | `POST` | `/auth/accept-invite` | — (rate-limited) | `{code, email, kindleEmail}` → `{apiKey, …}` — key shown once |
 | `POST` | `/convert` | user | article JSON → rendered file (`?format=pdf\|epub`) |
 | `POST` | `/send-to-kindle` | user | article JSON → Resend delivery to the user's Kindle; 502 if Resend unset |
@@ -124,6 +134,7 @@ Article JSON: `{ title, byline, publishedTime, content (HTML), url, device?, for
 | `TOME_CHROME` | auto-detected | Chrome-family binary for PDF rendering |
 | `TOME_CHROME_FLAGS` | — (`--no-sandbox --disable-dev-shm-usage` in the image) | extra Chrome flags |
 | `TOME_RESEND_BASE_URL` | `https://api.resend.com` | override for testing |
+| `TOME_EXTENSION_PATH` | `/opt/tome/extension.zip` in the image, else `../extension` | what `/extension.zip` serves (zip file or source dir) |
 | `TOME_SERVER_URL`, `TOME_ADMIN_KEY` | — | defaults for the `tome admin` CLI |
 
 Resend credentials are **not** env vars — the admin sets them at runtime

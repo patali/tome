@@ -3,11 +3,27 @@
   "name": "Tome",
   "version": "0.1.0",
   "description": "Turn the article you're reading into a clean, e-ink-optimized document and send it to your Kindle. X (Twitter) articles today; more sources coming.",
-  "permissions": ["scripting", "storage", "activeTab", "nativeMessaging"],
-  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
-  "background": { "service_worker": "background.js" },
-  "options_ui": { "page": "settings.html", "open_in_tab": true },
+  "permissions": [
+    "scripting",
+    "storage",
+    "activeTab",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "settings.html",
+    "open_in_tab": true
+  },
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -21,5 +37,6 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
-  }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsI2rrt0VvlFDqQnTsw6d8VQ9HdNychXdxfzlEVdJNBlP6lAo0JdTzqmrIIpPE3ABlL/KJjzUo5Z69AXPSSnc/KOet/9b3F4h9dX7yurKv5Hu+4E3hzI4RlbJq7/nEG6IA2NjIDwKIYTH5q/BZWKzvY3/grhEZQn/xTewzAG83gJXPrvdHLj+E+hW2sk6hrMaZKsF+XT5u8WFC3Y5slvbc72Zr4t53vAH6rgcmHUxM6OStK2lRwfqfjefnssQxyMl7SbGnruh2YQEyyi5TEuaBwSHo9KtArotiweSLqjoNRSmrPtd/D3+G92XJ26/zBtelM2nlj8JycQBgolMHVW5cQIDAQAB"
 }
