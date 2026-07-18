@@ -38,7 +38,7 @@ function refreshStatus() {
     serverText.textContent = "connected as " + s.email;
     var caps = [];
     if (s.resendConfigured) caps.push("direct delivery");
-    if (s.mailApp) caps.push("Mail.app");
+    if (s.mailHelper) caps.push("Mail.app helper");
     document.getElementById("acct-info").textContent =
       s.email + (caps.length ? "  ·  " + caps.join(" + ") : "  ·  no delivery configured");
     var kindleInput = document.getElementById("kindle-edit");

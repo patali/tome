@@ -3,7 +3,7 @@
   "name": "Tome",
   "version": "0.1.0",
   "description": "Turn the article you're reading into a clean, e-ink-optimized document and send it to your Kindle. X (Twitter) articles today; more sources coming.",
-  "permissions": ["scripting", "storage", "activeTab"],
+  "permissions": ["scripting", "storage", "activeTab", "nativeMessaging"],
   "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": { "service_worker": "background.js" },

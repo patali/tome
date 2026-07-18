@@ -30,8 +30,9 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
      toolbar, then `Cmd+P` → **Save as PDF**. Works without the server.
    - **Send to Kindle** → the server renders a PDF and Resend emails it
      straight to your Kindle address.
-   - **Send via email** → the server opens **Mail.app** with the file attached
-     for review (admin on the server's own Mac only).
+   - **Send via email** → the server renders the PDF and a small local helper
+     opens **your Mail.app** with it attached for review. One-time setup:
+     `extension/native-host/install.sh`, then restart the browser (macOS only).
 
 > In the print dialog: **Margins: Default** and enable **Background graphics**
 > so code-block shading prints.
@@ -69,6 +70,7 @@ trigger a one-time browser permission prompt (`optional_host_permissions`).
 | `reader.css` | **The single source of truth for e-ink typography.** Used by the reader page and shipped in the Send-to-Kindle payload so the server's PDF renders identically. Tune type here and only here. |
 | `reader.js` | Fills the page from the stashed article; device + print toolbar. |
 | `lib/Readability.js` | Mozilla Readability v0.5.0, vendored unmodified. |
+| `native-host/` | The **mail helper** (macOS): a native-messaging host that saves the rendered PDF and opens Mail.app with it attached. `install.sh` registers it for Chrome/Arc/Chromium/Brave/Edge; it derives the unpacked-extension ID from this repo's path (pass the ID as an argument if yours differs). |
 | `icons/` | Tome icon (16/48/128 px, transparent background) — toolbar button, popup header, reader favicon. Source art in `docs/assets/tome-icon.png`. |
 
 ## Adding a new source (Medium, Substack, ...)
