@@ -170,6 +170,17 @@ async function acceptInvite(code, email, kindleEmail) {
   return { ok: true, email: data.email, approvedSender: data.approvedSender };
 }
 
+async function updateKindleEmail(kindleEmail) {
+  const resp = await fetch((await serverUrl()) + "/me", {
+    method: "PUT",
+    headers: Object.assign({ "Content-Type": "application/json" }, await authHeaders()),
+    body: JSON.stringify({ kindleEmail })
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || ("server returned " + resp.status));
+  return { ok: true, kindleEmail: data.kindleEmail };
+}
+
 async function setApiKey(key) {
   const resp = await fetch((await serverUrl()) + "/me", {
     headers: { "Authorization": "Bearer " + key }
@@ -194,6 +205,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       if (msg.type === "setApiKey") {
         sendResponse(await setApiKey(msg.apiKey));
+        return;
+      }
+      if (msg.type === "updateKindle") {
+        sendResponse(await updateKindleEmail(msg.kindleEmail));
         return;
       }
       if (msg.type === "signOut") {

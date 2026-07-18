@@ -40,8 +40,9 @@ function refreshStatus() {
     if (s.resendConfigured) caps.push("direct delivery");
     if (s.mailApp) caps.push("Mail.app");
     document.getElementById("acct-info").textContent =
-      s.email + " → " + (s.kindleEmail || "") +
-      (caps.length ? "  ·  " + caps.join(" + ") : "  ·  no delivery configured");
+      s.email + (caps.length ? "  ·  " + caps.join(" + ") : "  ·  no delivery configured");
+    var kindleInput = document.getElementById("kindle-edit");
+    if (document.activeElement !== kindleInput) kindleInput.value = s.kindleEmail || "";
   });
 }
 refreshStatus();
@@ -102,6 +103,16 @@ document.getElementById("save-key").addEventListener("click", async function () 
   if (r.error) { note(r.error, "err"); return; }
   document.getElementById("api-key-input").value = "";
   note("Signed in as " + r.email + ".", "ok");
+  refreshStatus();
+});
+
+document.getElementById("save-kindle").addEventListener("click", async function () {
+  var kindle = document.getElementById("kindle-edit").value.trim();
+  if (!kindle) { note("Enter your @kindle.com address.", "err"); return; }
+  note("Saving…");
+  var r = await send({ type: "updateKindle", kindleEmail: kindle });
+  if (r.error) { note(r.error, "err"); return; }
+  note("Kindle address updated to " + r.kindleEmail + ".", "ok");
   refreshStatus();
 });
 
