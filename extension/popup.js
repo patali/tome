@@ -63,10 +63,10 @@ send({ type: "ping" }).then(function (s) {
   kindleBtn.title = s.resendConfigured
     ? "Email the document to " + (s.kindleEmail || "your Kindle")
     : "Ask the admin to configure Resend delivery";
-  mailBtn.disabled = !s.mailApp;
-  mailBtn.title = s.mailApp
+  mailBtn.disabled = !s.mailHelper;
+  mailBtn.title = s.mailHelper
     ? "Open Mail.app with the document attached (to " + (s.kindleEmail || "your Kindle") + ")"
-    : "Only available to the admin when the server runs on this Mac";
+    : "Install the mail helper: run extension/native-host/install.sh, then restart the browser";
 });
 
 function runAction(btn, mode, busyText, doneText) {

@@ -115,8 +115,7 @@ async function readerCSS() {
   }
 }
 
-// deliver POSTs the article to a send endpoint: "/send-to-kindle" (Resend ->
-// the user's Kindle) or "/send-via-mail" (opens Mail.app on the server host).
+// deliver POSTs the article to /send-to-kindle (Resend -> the user's Kindle).
 async function deliver(article, path) {
   article.css = await readerCSS();
   const resp = await fetch((await serverUrl()) + path, {
@@ -128,6 +127,67 @@ async function deliver(article, path) {
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(data.error || ("server returned " + resp.status));
   return data; // { ok, method, sentTo, filename, bytes }
+}
+
+const MAIL_HELPER = "com.tome.mailer";
+const HELPER_HINT = "Mail helper not installed — run extension/native-host/install.sh, then restart the browser.";
+
+// mailHelperPing reports whether the local native-messaging helper responds.
+async function mailHelperPing() {
+  try {
+    const reply = await chrome.runtime.sendNativeMessage(MAIL_HELPER, { ping: true });
+    return !!(reply && reply.ok);
+  } catch (e) {
+    return false;
+  }
+}
+
+// sendViaMail: the SERVER renders the PDF, then the LOCAL mail helper opens
+// Mail.app with it attached — works no matter where the server runs.
+async function sendViaMail(article) {
+  article.css = await readerCSS();
+  const url = await serverUrl();
+  const headers = await authHeaders();
+
+  const meResp = await fetch(url + "/me", { headers });
+  if (meResp.status === 401) throw new Error("Not signed in — open Tome settings (⚙).");
+  if (!meResp.ok) throw new Error("server returned " + meResp.status);
+  const me = await meResp.json();
+
+  const resp = await fetch(url + "/convert", {
+    method: "POST",
+    headers: Object.assign({ "Content-Type": "application/json" }, headers),
+    body: JSON.stringify(article)
+  });
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    throw new Error(data.error || ("server returned " + resp.status));
+  }
+  const cd = resp.headers.get("Content-Disposition") || "";
+  const m = /filename="([^"]+)"/.exec(cd);
+  const filename = m ? m[1] : "article.pdf";
+  const data = b64FromBuffer(await resp.arrayBuffer());
+
+  let reply;
+  try {
+    reply = await chrome.runtime.sendNativeMessage(MAIL_HELPER, {
+      to: me.kindleEmail, subject: article.title || filename, filename, data
+    });
+  } catch (e) {
+    throw new Error(HELPER_HINT);
+  }
+  if (!reply || !reply.ok) throw new Error((reply && reply.error) || "mail helper failed");
+  return { sentTo: me.kindleEmail };
+}
+
+function b64FromBuffer(buf) {
+  const u8 = new Uint8Array(buf);
+  const CHUNK = 0x8000; // avoid call-stack limits on large PDFs
+  let s = "";
+  for (let i = 0; i < u8.length; i += CHUNK) {
+    s += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK));
+  }
+  return btoa(s);
 }
 
 // Two-step status: is the server up, and does our stored key identify us?
@@ -142,6 +202,7 @@ async function serverStatus() {
     return { up: false, url };
   }
   const out = { up: true, url, authRequired: !!status.authRequired, signedIn: false, badKey: false };
+  out.mailHelper = await mailHelperPing();
   if (!(await apiKey())) return out;
   try {
     const resp = await fetch(url + "/me", { headers: await authHeaders() });
@@ -152,7 +213,6 @@ async function serverStatus() {
     out.email = me.email;
     out.kindleEmail = me.kindleEmail;
     out.resendConfigured = !!me.resendConfigured;
-    out.mailApp = !!me.mailApp;
   } catch (e) { /* leave signedIn false */ }
   return out;
 }
@@ -228,7 +288,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           const result = await deliver(article, "/send-to-kindle");
           sendResponse({ ok: true, mode: "kindle", sentTo: result.sentTo });
         } else if (msg.mode === "mail") {
-          const result = await deliver(article, "/send-via-mail");
+          const result = await sendViaMail(article);
           sendResponse({ ok: true, mode: "mail", sentTo: result.sentTo });
         } else {
           sendResponse({ error: "Unknown mode: " + msg.mode });

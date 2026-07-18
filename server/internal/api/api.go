@@ -44,7 +44,6 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("POST /convert", auth.RequireUser(s.Store, http.HandlerFunc(s.handleConvert)))
 	mux.Handle("POST /send-to-kindle", auth.RequireUser(s.Store, http.HandlerFunc(s.handleSendToKindle)))
-	mux.Handle("POST /send-via-mail", auth.RequireUser(s.Store, http.HandlerFunc(s.handleSendViaMail)))
 	mux.Handle("GET /me", auth.RequireUser(s.Store, http.HandlerFunc(s.handleMe)))
 	mux.Handle("PUT /me", auth.RequireUser(s.Store, http.HandlerFunc(s.handlePutMe)))
 
