@@ -124,6 +124,19 @@ document.getElementById("signout").addEventListener("click", async function () {
 
 /* --- Popup button toggles ---------------------------------------------- */
 
+chrome.storage.sync.get({ buttonStyle: "text" }, function (v) {
+  var radios = { text: document.getElementById("style-text"), icons: document.getElementById("style-icons") };
+  (radios[v.buttonStyle] || radios.text).checked = true;
+  Object.keys(radios).forEach(function (k) {
+    radios[k].addEventListener("change", function () {
+      if (!radios[k].checked) return;
+      chrome.storage.sync.set({ buttonStyle: k }, function () {
+        note("Popup style updated.", "ok");
+      });
+    });
+  });
+});
+
 var TOGGLES = { preview: "btn-preview", kindle: "btn-kindle", mail: "btn-mail" };
 var DEFAULT_BUTTONS = { preview: true, kindle: true, mail: true };
 

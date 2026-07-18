@@ -30,12 +30,16 @@ document.getElementById("open-settings").addEventListener("click", function (e) 
   openSettings();
 });
 
-// Which action buttons are shown is a user setting (settings page).
-chrome.storage.sync.get({ buttons: { preview: true, kindle: true, mail: true } }, function (v) {
-  readerBtn.hidden = v.buttons.preview === false;
-  kindleBtn.hidden = v.buttons.kindle === false;
-  mailBtn.hidden = v.buttons.mail === false;
-});
+// Which action buttons are shown, and how (icon+text vs icons only), are
+// user settings (settings page).
+chrome.storage.sync.get(
+  { buttons: { preview: true, kindle: true, mail: true }, buttonStyle: "text" },
+  function (v) {
+    readerBtn.hidden = v.buttons.preview === false;
+    kindleBtn.hidden = v.buttons.kindle === false;
+    mailBtn.hidden = v.buttons.mail === false;
+    document.body.classList.toggle("icons-only", v.buttonStyle === "icons");
+  });
 
 // Server + account state decide which of the visible buttons are usable.
 // "Open preview" is fully client-side, so it never depends on the server.
