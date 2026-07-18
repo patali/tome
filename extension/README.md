@@ -53,6 +53,7 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 | `reader.css` | **The single source of truth for e-ink typography.** Used by the reader page and shipped in the Send-to-Kindle payload so the server's PDF renders identically. Tune type here and only here. |
 | `reader.js` | Fills the page from the stashed article; device + print toolbar. |
 | `lib/Readability.js` | Mozilla Readability v0.5.0, vendored unmodified. |
+| `icons/` | Tome icon (16/48/128 px, transparent background) — toolbar button, popup header, reader favicon. Source art in `docs/assets/tome-icon.png`. |
 
 ## Adding a new source (Medium, Substack, ...)
 
@@ -80,8 +81,6 @@ source-agnostic.
 
 ## Notes & limitations
 
-- **No icon** is bundled, so Arc/Chrome shows a default generic icon. Drop 16/48/128px
-  PNGs in `icons/` and add an `"icons"` block to `manifest.json` to customize.
 - **Fonts load from Google Fonts** the first time; they fall back to Georgia /
   system monospace offline.
 - **Grayscale/contrast on images is a CSS preview** (`filter:`), not baked into

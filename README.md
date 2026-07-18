@@ -1,4 +1,8 @@
-# 📖 Tome
+<p align="center">
+  <img src="docs/assets/tome-icon.png" alt="Tome" width="200">
+</p>
+
+<h1 align="center">Tome</h1>
 
 Turn web articles into beautifully typeset, e-ink-optimized documents on your
 Kindle. Today Tome handles **X (Twitter) articles** — long-form posts locked
