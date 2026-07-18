@@ -17,7 +17,7 @@ func runInitAdmin(args []string) {
 	email := fs.String("email", "", "admin email address")
 	kindleEmail := fs.String("kindle", "", "admin's @kindle.com address")
 	dir := fs.String("data-dir", dataDir(), "data directory (default: TOME_DATA_DIR or ./data)")
-	rotate := fs.Bool("rotate-key", false, "generate and print a new key for the existing admin (lost-key recovery)")
+	rotate := fs.Bool("rotate-key", false, "generate and print a new key for the existing admin (lost-key recovery); combine with --email/--kindle to also update those")
 	_ = fs.Parse(args)
 
 	st, err := store.Open(*dir)
@@ -30,6 +30,17 @@ func runInitAdmin(args []string) {
 		admin, err := st.FirstAdmin()
 		if err != nil {
 			fatal("no admin account to rotate (run init-admin without --rotate-key first)")
+		}
+		if *email != "" && *email != admin.Email {
+			if err := st.UpdateEmail(admin.ID, *email); err != nil {
+				fatal("update email: %v", err)
+			}
+			admin.Email = *email
+		}
+		if *kindleEmail != "" {
+			if err := st.UpdateKindleEmail(admin.ID, *kindleEmail); err != nil {
+				fatal("update kindle email: %v", err)
+			}
 		}
 		key, hash, prefix := auth.NewAPIKey()
 		if err := st.RotateKey(admin.ID, hash, prefix); err != nil {
