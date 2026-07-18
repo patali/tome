@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; }
+  body { width: 260px; margin: 0; padding: 14px;
+    font: 13px/1.4 ui-sans-serif, system-ui, sans-serif; color: #111; background: #fff; }
+  @media (prefers-color-scheme: dark) { body { color: #eee; background: #1c1c1e; } }
+  h1 { font-size: 14px; margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
+  button { display: block; width: 100%; margin: 0 0 8px; padding: 10px;
+    font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid #888; }
+  .primary { background: #111; color: #fff; border-color: #111; }
+  @media (prefers-color-scheme: dark) { .primary { background: #eee; color: #111; border-color: #eee; } }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #status { margin-top: 10px; font-size: 12px; min-height: 16px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: #bbb; margin-right: 5px; vertical-align: middle; }
+  .dot.up { background: #1a9e4b; } .dot.down { background: #d1342f; }
+  .muted { color: #888; }
+  .err { color: #d1342f; } .ok { color: #1a9e4b; }
+</style>
+</head>
+<body>
+  <h1>📖 Tome</h1>
+  <button id="reader" class="primary">Open reader tab</button>
+  <button id="kindle">Send to Kindle</button>
+  <div id="server"><span class="dot" id="dot"></span><span id="server-text" class="muted">checking server…</span></div>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

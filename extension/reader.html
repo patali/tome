@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" data-device="scribe">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tome — Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<!-- reader.js rewrites this so Cmd+P -> Save as PDF uses the real device page size. -->
+<style id="tome-page-style">
+@page { size: 157mm 210mm; margin: 10mm 10mm 10mm 10mm; }
+</style>
+
+<!-- Single source of truth for all e-ink typography (shared with the server's
+     PDF renderer — see reader.css header). -->
+<link rel="stylesheet" href="reader.css">
+</head>
+<body>
+
+<nav id="tome-toolbar" aria-label="Preview controls">
+  <span style="color:#666">Device:</span>
+  <button data-device="scribe" aria-pressed="true">Scribe 10.2"</button>
+  <button data-device="scribe3" aria-pressed="false">Scribe 11"</button>
+  <button data-device="paperwhite" aria-pressed="false">Paperwhite</button>
+  <button class="tome-print" id="tome-print">Save as PDF</button>
+</nav>
+
+<div id="tome-status"></div>
+<h1 class="article-title" id="tome-title"></h1>
+<p class="article-meta" id="tome-meta"></p>
+<article class="article-body" id="tome-content"></article>
+
+<script src="reader.js"></script>
+</body>
+</html>
