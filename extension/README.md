@@ -51,7 +51,7 @@ prompt (`optional_host_permissions`); the setting syncs via `chrome.storage.sync
 
 | File | Role |
 |---|---|
-| `manifest.json` | MV3 manifest. Permissions: `activeTab`, `scripting`, `storage` (page access only for the tab whose button you click); `host_permissions` for `http://localhost:8080/*` so the popup can reach the local server. |
+| `manifest.json` | MV3 manifest. Permissions: `activeTab`, `scripting`, `storage` (page access only for the tab whose button you click); `host_permissions` for `http://localhost/*` (patterns match every port) so the popup can reach the local server. |
 | `popup.html` / `popup.js` | Toolbar popup: **Open reader tab** / **Send to Kindle**, plus a live server-status indicator. |
 | `background.js` | Service worker. Injects the extractor modules into the page, dispatches to the highest-priority one that matches, then opens the reader or POSTs to the local server. |
 | `extractors/x.js` | **X (Twitter) article extractor** — reads X's stable `data-testid` landmarks directly (title, byline, date, cover image, sanitized body). |
