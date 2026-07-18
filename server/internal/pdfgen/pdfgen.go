@@ -129,14 +129,20 @@ func Build(a article.Article) (data []byte, filename string, err error) {
 		return nil, "", err
 	}
 
-	var stderr bytes.Buffer
-	cmd := exec.Command(chrome,
+	args := []string{
 		"--headless=new", "--disable-gpu", "--no-pdf-header-footer",
 		"--disable-background-networking", "--disable-component-update", "--no-first-run",
-		"--user-data-dir="+filepath.Join(work, "profile"),
-		"--print-to-pdf="+outPath,
-		"file://"+inPath,
-	)
+		"--user-data-dir=" + filepath.Join(work, "profile"),
+	}
+	// Extra flags for constrained environments, e.g. containers need
+	// "--no-sandbox --disable-dev-shm-usage" (set by the Dockerfile).
+	if extra := os.Getenv("TOME_CHROME_FLAGS"); extra != "" {
+		args = append(args, strings.Fields(extra)...)
+	}
+	args = append(args, "--print-to-pdf="+outPath, "file://"+inPath)
+
+	var stderr bytes.Buffer
+	cmd := exec.Command(chrome, args...)
 	cmd.Stderr = &stderr
 	// New process group so we can reliably kill Chrome and its children — some
 	// builds render the PDF but never exit on macOS.

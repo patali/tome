@@ -32,6 +32,23 @@ Browser (you, logged in)          Local Go server (:8080)
 3. Open an X article, click the **Tome** toolbar button →
    **Send to Kindle** (or **Open reader tab** → `Cmd+P` → Save as PDF).
 
+## Self-host the server (container)
+
+The server also ships as a container image with Chromium bundled — no Go or
+browser needed on the machine running it. Works with Docker or
+[Apple's `container`](https://github.com/apple/container):
+
+```bash
+cd server
+container build -t tome .      # or: docker build -t tome .
+container run --detach --name tome -p 8080:8080 tome
+```
+
+Point the extension at it via popup → **Server settings** (any `http(s)://host:port`
+works — localhost, a home server, a NAS). Inside a container, Send-to-Kindle
+delivery is SMTP-only; pass `TOME_*` env vars with `-e`. Details and caveats in
+[`server/README.md`](server/README.md#run-in-a-container-self-host).
+
 ## Layout
 
 | Path | What it is |

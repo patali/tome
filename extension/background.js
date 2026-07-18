@@ -15,7 +15,18 @@
  * it in EXTRACTOR_FILES below — nothing else changes.
  */
 
-const SERVER = "http://localhost:8080";
+const DEFAULT_SERVER = "http://localhost:8080";
+
+// The server address is configurable (popup -> Server settings) so the Go
+// server can run anywhere: localhost, a container, or another machine.
+async function serverUrl() {
+  try {
+    const { serverUrl } = await chrome.storage.sync.get({ serverUrl: DEFAULT_SERVER });
+    return (serverUrl || DEFAULT_SERVER).replace(/\/+$/, "");
+  } catch (e) {
+    return DEFAULT_SERVER;
+  }
+}
 
 // Injection order: libraries first, then extractors (any order — priority
 // decides who runs first), dispatcher last via func.
@@ -90,7 +101,7 @@ async function readerCSS() {
 
 async function sendToKindle(article) {
   article.css = await readerCSS();
-  const resp = await fetch(SERVER + "/send-to-kindle", {
+  const resp = await fetch((await serverUrl()) + "/send-to-kindle", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(article)
@@ -101,13 +112,14 @@ async function sendToKindle(article) {
 }
 
 async function serverStatus() {
+  const url = await serverUrl();
   try {
-    const resp = await fetch(SERVER + "/status", { method: "GET" });
-    if (!resp.ok) return { up: false };
+    const resp = await fetch(url + "/status", { method: "GET" });
+    if (!resp.ok) return { up: false, url };
     const data = await resp.json();
-    return { up: true, kindleConfigured: !!data.kindleConfigured, method: data.method, kindleEmail: data.kindleEmail };
+    return { up: true, url, kindleConfigured: !!data.kindleConfigured, method: data.method, kindleEmail: data.kindleEmail };
   } catch (e) {
-    return { up: false };
+    return { up: false, url };
   }
 }
 
