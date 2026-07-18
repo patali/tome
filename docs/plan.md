@@ -140,6 +140,24 @@ macOS 26 requires the Local Network privacy permission (and VPNs can interfere)
 — see `server/README.md`. The extension's server URL is now configurable
 (popup → Server settings, `chrome.storage.sync` + `optional_host_permissions`).
 
+**Multi-user backend (2026-07-18): accounts, invites, Resend**
+The server is now multi-user and invite-only (no anonymous mode). SQLite
+(pure-Go driver, `TOME_DATA_DIR`/`/data` volume) stores users (per-user Kindle
+address + hashed API key), single-use high-entropy invites, and admin settings
+(Resend API key — write-only — and from-address). Auth is `Bearer tome_…`;
+public surface is only `/status` and rate-limited `/auth/accept-invite`.
+Delivery per user: Resend when configured, macOS Mail.app only for the admin's
+own sends, else 502. Admin surface is a JSON API + `tome admin` CLI (invites
+create/list/delete, users list/disable/enable/rotate-key, settings get/set);
+bootstrap via `tome init-admin` (direct DB, `--rotate-key` recovery). The
+extension popup is the signup UI: redeem an invite (or paste a key) in Server
+settings; key kept in `chrome.storage.local`. SMTP support and the go-mail dep
+were deleted. Container entrypoint chowns `/data` then drops privileges
+(Apple's runtime mounts named volumes root-owned). Verified end-to-end: 401
+gates, CORS preflight with Authorization, invite lifecycle + rate limit,
+per-user delivery against a fake Resend sink, settings redaction,
+disable/rotate semantics, container volume persistence across restarts.
+
 **Next (re-sequenced)**
 1. Image robustness: if a `pbs.twimg.com` image ever needs auth, have the extension
    inline images as **data URIs** from the already-authenticated DOM before POSTing.
