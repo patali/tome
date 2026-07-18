@@ -101,6 +101,14 @@ func (s *Store) RotateKey(id int64, newHash, newPrefix string) error {
 	return s.expectOne(s.db.Exec("UPDATE users SET api_key_hash = ?, api_key_prefix = ? WHERE id = ?", newHash, newPrefix, id))
 }
 
+func (s *Store) UpdateEmail(id int64, email string) error {
+	err := s.expectOne(s.db.Exec("UPDATE users SET email = ? WHERE id = ?", email, id))
+	if isEmailConflict(err) {
+		return ErrEmailExists
+	}
+	return err
+}
+
 func (s *Store) UpdateKindleEmail(id int64, kindleEmail string) error {
 	return s.expectOne(s.db.Exec("UPDATE users SET kindle_email = ? WHERE id = ?", kindleEmail, id))
 }
