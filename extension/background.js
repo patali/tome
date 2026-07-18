@@ -115,14 +115,16 @@ async function readerCSS() {
   }
 }
 
-async function sendToKindle(article) {
+// deliver POSTs the article to a send endpoint: "/send-to-kindle" (Resend ->
+// the user's Kindle) or "/send-via-mail" (opens Mail.app on the server host).
+async function deliver(article, path) {
   article.css = await readerCSS();
-  const resp = await fetch((await serverUrl()) + "/send-to-kindle", {
+  const resp = await fetch((await serverUrl()) + path, {
     method: "POST",
     headers: Object.assign({ "Content-Type": "application/json" }, await authHeaders()),
     body: JSON.stringify(article)
   });
-  if (resp.status === 401) throw new Error("Not signed in — open Server settings in the popup.");
+  if (resp.status === 401) throw new Error("Not signed in — open Tome settings (⚙).");
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(data.error || ("server returned " + resp.status));
   return data; // { ok, method, sentTo, filename, bytes }
@@ -149,7 +151,8 @@ async function serverStatus() {
     out.signedIn = true;
     out.email = me.email;
     out.kindleEmail = me.kindleEmail;
-    out.deliveryMethod = me.deliveryMethod;
+    out.resendConfigured = !!me.resendConfigured;
+    out.mailApp = !!me.mailApp;
   } catch (e) { /* leave signedIn false */ }
   return out;
 }
@@ -207,8 +210,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           await openReader(article);
           sendResponse({ ok: true, mode: "reader" });
         } else if (msg.mode === "kindle") {
-          const result = await sendToKindle(article);
+          const result = await deliver(article, "/send-to-kindle");
           sendResponse({ ok: true, mode: "kindle", sentTo: result.sentTo });
+        } else if (msg.mode === "mail") {
+          const result = await deliver(article, "/send-via-mail");
+          sendResponse({ ok: true, mode: "mail", sentTo: result.sentTo });
         } else {
           sendResponse({ error: "Unknown mode: " + msg.mode });
         }
