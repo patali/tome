@@ -70,15 +70,15 @@ saveBtn.addEventListener("click", function () {
     return;
   }
   var normalized = u.origin + u.pathname.replace(/\/+$/, "");
-  chrome.permissions.request({ origins: [u.origin + "/*"] }, function (granted) {
-    if (!granted) {
-      noteEl.textContent = "Permission for " + u.origin + " was declined.";
-      noteEl.className = "err";
-      return;
-    }
+  // Match patterns must not contain a port (they match every port on the
+  // host), so request the portless origin. A missing grant isn't fatal —
+  // the Tome server answers with permissive CORS — so always save.
+  var pattern = u.protocol + "//" + u.hostname + "/*";
+  chrome.permissions.request({ origins: [pattern] }, function (granted) {
+    void chrome.runtime.lastError; // swallow "invalid pattern" style errors
     chrome.storage.sync.set({ serverUrl: normalized }, function () {
       urlInput.value = normalized;
-      noteEl.textContent = "Saved.";
+      noteEl.textContent = granted ? "Saved." : "Saved (no host permission — using server CORS).";
       noteEl.className = "ok";
       refreshStatus();
     });
