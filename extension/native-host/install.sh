@@ -15,14 +15,18 @@ HOST_NAME="com.tome.mailer"
 
 EXT_ID="${1:-}"
 if [ -z "$EXT_ID" ]; then
-    # Unpacked-extension ID = sha256(absolute path), first 32 hex chars, 0-f -> a-p.
+    # The manifest pins a public key, which fixes the extension ID on every
+    # machine; fall back to the path-derived ID for unpinned manifests.
     EXT_ID=$(python3 - "$EXT_DIR" <<'PY'
-import hashlib, sys
-digest = hashlib.sha256(sys.argv[1].encode("utf-8")).hexdigest()[:32]
+import base64, hashlib, json, os, sys
+ext = sys.argv[1]
+key = json.load(open(os.path.join(ext, "manifest.json"))).get("key")
+data = base64.b64decode(key) if key else ext.encode("utf-8")
+digest = hashlib.sha256(data).hexdigest()[:32]
 print("".join(chr(ord('a') + int(c, 16)) for c in digest))
 PY
 )
-    echo "derived extension id from $EXT_DIR: $EXT_ID"
+    echo "extension id: $EXT_ID"
 fi
 
 chmod +x "$HERE/tome_mailer.py"

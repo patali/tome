@@ -11,6 +11,11 @@ which is not subject to the page's Content-Security-Policy. So there's nothing
 to inline or work around — it just runs. (An earlier bookmarklet approach died
 on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 
+> **Invitees:** the easiest path is your server's install page —
+> `http://your-server/install` — which serves this extension as a zip with
+> step-by-step instructions. The steps below are the from-source equivalent.
+> The manifest pins a public key, so every install shares one extension ID.
+
 ## Install in Arc (unpacked)
 
 1. Open a new tab and go to **`arc://extensions`**

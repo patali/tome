@@ -23,9 +23,10 @@ const maxBody = 8 << 20 // 8 MiB for article payloads
 const maxAuthBody = 4 << 10
 
 type Server struct {
-	Store      *store.Store
-	ResendBase string // override for tests; "" = resend.DefaultBaseURL
-	limiter    *auth.Limiter
+	Store         *store.Store
+	ResendBase    string // override for tests; "" = resend.DefaultBaseURL
+	ExtensionPath string // extension zip (or source dir) served at /extension.zip
+	limiter       *auth.Limiter
 }
 
 func New(st *store.Store, resendBase string) *Server {
@@ -40,6 +41,8 @@ func New(st *store.Store, resendBase string) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", s.handleStatus)
+	mux.HandleFunc("GET /install", s.handleInstallPage)
+	mux.HandleFunc("GET /extension.zip", s.handleExtensionZip)
 	mux.Handle("POST /auth/accept-invite", s.limiter.Wrap(http.HandlerFunc(s.handleAcceptInvite)))
 
 	mux.Handle("POST /convert", auth.RequireUser(s.Store, http.HandlerFunc(s.handleConvert)))
