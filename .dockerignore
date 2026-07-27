@@ -6,3 +6,6 @@ README.md
 server/Dockerfile
 server/data
 data
+
+.env
+**/.env
