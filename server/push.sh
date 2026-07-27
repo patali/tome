@@ -4,12 +4,13 @@
 # The build context is the REPO ROOT — the image bundles extension/ — so this
 # script cd's there itself and can be run from anywhere.
 #
-# Auth needs a GitHub PAT with write:packages in $GHCR_PAT. The gh CLI's own
-# token carries repo scopes only, so it can't be reused for the registry.
+# Auth needs a GitHub PAT with write:packages. Put it in server/.env (copy
+# server/.env.example — gitignored), or export GHCR_PAT; an exported value
+# wins. The gh CLI's own token carries repo scopes only and won't work here.
 #
-#   GHCR_PAT=ghp_… ./server/push.sh            # tag = short commit SHA
-#   GHCR_PAT=ghp_… ./server/push.sh --latest   # …and move :latest too
-#   GHCR_PAT=ghp_… ./server/push.sh --dirty    # allow an uncommitted tree
+#   ./server/push.sh            # tag = short commit SHA
+#   ./server/push.sh --latest   # …and move :latest too
+#   ./server/push.sh --dirty    # allow an uncommitted tree
 #
 # Prints the pushed tag; put it in TOME_TAG in the host stack's .env.
 
@@ -20,7 +21,8 @@ PLATFORM=linux/arm64          # Raspberry Pi 4
 REGISTRY=ghcr.io
 OWNER=patali
 
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/.."
 
 push_latest=false
 allow_dirty=false
@@ -36,8 +38,20 @@ done
 
 die() { echo "error: $*" >&2; exit 1; }
 
+# Fall back to server/.env so the token lives in one gitignored file instead of
+# your shell history. Anything already exported takes precedence, which keeps
+# CI working without the file.
+ENV_FILE="$SCRIPT_DIR/.env"
+if [ -z "${GHCR_PAT:-}" ] && [ -f "$ENV_FILE" ]; then
+    mode=$(stat -f '%Lp' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE")
+    [ "$mode" = "600" ] || echo "warning: $ENV_FILE is mode $mode — chmod 600 it" >&2
+    set -a; . "$ENV_FILE"; set +a
+fi
+
+# Config first, daemon second: a missing token is cheaper to report than a
+# missing daemon, and reporting both in one run beats two round trips.
+[ -n "${GHCR_PAT:-}" ] || die "GHCR_PAT not set — copy server/.env.example to server/.env and fill it in"
 docker info >/dev/null 2>&1 || die "docker daemon not reachable — start Docker Desktop"
-[ -n "${GHCR_PAT:-}" ] || die "GHCR_PAT is not set (needs a PAT with write:packages)"
 
 # The tag has to identify exactly what shipped, so a dirty tree is refused
 # unless you say otherwise.
