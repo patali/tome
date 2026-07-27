@@ -144,6 +144,15 @@ func Build(a article.Article) (data []byte, filename string, err error) {
 	var stderr bytes.Buffer
 	cmd := exec.Command(chrome, args...)
 	cmd.Stderr = &stderr
+	// Chrome needs a writable HOME to set up its crashpad database, and aborts
+	// outright ("chrome_crashpad_handler: --database is required", SIGTRAP) if
+	// it can't — no PDF, so the poll below just waits out the deadline. That
+	// happens whenever HOME is read-only, e.g. a container run with a
+	// read_only root filesystem, where su-exec has reset HOME to the service
+	// user's home. --user-data-dir doesn't cover it and neither does
+	// --crash-dumps-dir; only HOME itself. Point it at the work dir, which is
+	// already temporary and cleaned up on return.
+	cmd.Env = append(os.Environ(), "HOME="+work)
 	// New process group so we can reliably kill Chrome and its children — some
 	// builds render the PDF but never exit on macOS.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
