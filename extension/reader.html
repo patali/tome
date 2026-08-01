@@ -21,12 +21,19 @@
 <body>
 
 <nav id="tome-toolbar" aria-label="Preview controls">
-  <span style="color:#666">Device:</span>
+  <span class="tome-label">Device:</span>
   <button data-device="scribe" aria-pressed="true">Scribe 10.2"</button>
   <button data-device="scribe3" aria-pressed="false">Scribe 11"</button>
   <button data-device="paperwhite" aria-pressed="false">Paperwhite</button>
+  <span class="tome-sep" role="separator"></span>
+  <span class="tome-label">Images:</span>
+  <button data-color="bw" aria-pressed="true">B&amp;W</button>
+  <button data-color="color" aria-pressed="false">Colour</button>
+  <span class="tome-sep" role="separator"></span>
   <button class="tome-print" id="tome-print">Save as PDF</button>
+  <button class="tome-send" id="tome-send">Send to Kindle</button>
 </nav>
+<div id="tome-send-status" role="status" aria-live="polite" hidden></div>
 
 <div id="tome-status"></div>
 <h1 class="article-title" id="tome-title"></h1>

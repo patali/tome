@@ -109,6 +109,17 @@ async function openReader(article) {
   await chrome.tabs.create({ url: chrome.runtime.getURL("reader.html") });
 }
 
+// The article the reader page is currently showing. Session storage is
+// cleared when the browser closes, so a stale reader tab reopened later has
+// nothing to send — say so rather than silently sending the wrong thing.
+async function stashedArticle() {
+  const { article } = await chrome.storage.session.get({ article: null });
+  if (!article || !article.content) {
+    return { error: "This preview is no longer loaded — reopen it from the Tome button." };
+  }
+  return article;
+}
+
 // The shared e-ink stylesheet (extension/reader.css) is the single source of
 // truth; ship it with the payload so the server's PDF renders with exactly the
 // CSS the reader tab shows. The server keeps a fallback for bare-curl clients.
@@ -195,6 +206,105 @@ async function setApiKey(key) {
   return { ok: true, email: me.email };
 }
 
+/* --- Update check -------------------------------------------------------
+ *
+ * This is a "Load unpacked" install, so the browser will never update it. The
+ * server reports the version of the extension it hands out at /status; if that
+ * is newer than ours, we raise a badge and the popup explains how to update.
+ *
+ * Deliberately quiet: a badge dot and one line in the popup, no notifications
+ * and no interruption of whatever the user was doing.
+ */
+
+const UPDATE_ALARM = "tome-update-check";
+const UPDATE_PERIOD_MIN = 360; // 6h — a manual-install update is never urgent
+
+function installedVersion() {
+  try {
+    return chrome.runtime.getManifest().version || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+// Compares dotted-integer versions (Chrome's manifest format: 1-4 numbers, no
+// pre-release suffixes). Returns 1 if a > b, -1 if a < b, 0 if equal/unknown.
+function compareVersions(a, b) {
+  const pa = String(a || "").split(".");
+  const pb = String(b || "").split(".");
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = parseInt(pa[i], 10) || 0;
+    const y = parseInt(pb[i], 10) || 0;
+    if (x > y) return 1;
+    if (x < y) return -1;
+  }
+  return 0;
+}
+
+async function updateState() {
+  const { latestVersion, dismissedVersion, lastCheckedAt } = await chrome.storage.local.get({
+    latestVersion: "", dismissedVersion: "", lastCheckedAt: 0
+  });
+  const installed = installedVersion();
+  const available = !!latestVersion && compareVersions(latestVersion, installed) > 0;
+  return {
+    installed,
+    latestVersion,
+    lastCheckedAt,
+    updateAvailable: available,
+    // Dismissal is per-version: a newer release surfaces again.
+    showUpdate: available && compareVersions(latestVersion, dismissedVersion) > 0
+  };
+}
+
+async function refreshBadge() {
+  const st = await updateState();
+  try {
+    await chrome.action.setBadgeText({ text: st.showUpdate ? "•" : "" });
+    if (st.showUpdate) {
+      await chrome.action.setBadgeBackgroundColor({ color: "#1a9e4b" });
+      await chrome.action.setTitle({ title: "Tome — version " + st.latestVersion + " is available" });
+    } else {
+      await chrome.action.setTitle({ title: "Convert this article for Kindle" });
+    }
+  } catch (e) { /* action API unavailable (e.g. during teardown) */ }
+}
+
+// Asks the server which extension version it ships. Failure is silent: the
+// server being unreachable is already reported by the status dot, and an
+// update check is not worth a second error message.
+async function checkForUpdate() {
+  try {
+    const resp = await fetch((await serverUrl()) + "/status");
+    if (!resp.ok) return;
+    const status = await resp.json();
+    if (status && typeof status.extensionVersion === "string" && status.extensionVersion) {
+      await chrome.storage.local.set({
+        latestVersion: status.extensionVersion, lastCheckedAt: Date.now()
+      });
+    }
+  } catch (e) { /* offline or misconfigured server */ }
+  await refreshBadge();
+}
+
+// Only create the alarm if it isn't already scheduled. This module re-runs
+// every time the service worker wakes, and create() on an existing name
+// restarts its countdown — recreating unconditionally means a worker that
+// wakes more often than every 6h resets the timer forever and it never fires.
+chrome.alarms.get(UPDATE_ALARM).then((existing) => {
+  if (!existing) chrome.alarms.create(UPDATE_ALARM, { periodInMinutes: UPDATE_PERIOD_MIN });
+}).catch(() => {});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === UPDATE_ALARM) checkForUpdate();
+});
+chrome.runtime.onInstalled.addListener(() => {
+  // A fresh install of a newer build should clear a stale "update available".
+  chrome.storage.local.remove("dismissedVersion").then(checkForUpdate, checkForUpdate);
+});
+chrome.runtime.onStartup.addListener(checkForUpdate);
+refreshBadge();
+
 /* --- Job queue ---------------------------------------------------------
  *
  * Jobs live in storage.local so they outlive both the popup and this service
@@ -231,13 +341,19 @@ function newJobId() {
 
 const MODE_LABEL = { reader: "Preview", kindle: "Send to Kindle" };
 
-async function addJob(mode, tab) {
+async function addJob(mode, tab, opts) {
+  const o = opts || {};
   const job = {
     id: newJobId(),
     mode,
     label: MODE_LABEL[mode] || mode,
-    title: (tab && tab.title) || "This page",
-    url: (tab && tab.url) || "",
+    // "stash" means the reader page already holds the extracted article, so
+    // there is nothing to pull out of the active tab (which is the reader).
+    source: o.source === "stash" ? "stash" : "tab",
+    device: o.device || "",
+    color: o.color || "",
+    title: o.title || (tab && tab.title) || "This page",
+    url: o.url || (tab && tab.url) || "",
     state: "running",
     message: mode === "reader" ? "Extracting…" : "Converting…",
     startedAt: Date.now(),
@@ -275,10 +391,13 @@ reconcileStaleJobs();
 // caller: progress and outcome are written to the job record instead.
 async function runJob(job) {
   try {
-    const article = await extractFromTab(await activeTab());
+    const article = job.source === "stash" ? await stashedArticle() : await extractFromTab(await activeTab());
     if (article.error) throw new Error(article.error);
-    console.log("[tome] extracted via:", article.extractor, "->", article.title);
+    console.log("[tome] article:", article.extractor || job.source, "->", article.title);
     if (article.title) await patchJob(job.id, { title: article.title });
+    // Preview-page choices override whatever the article was stashed with.
+    if (job.device) article.device = job.device;
+    if (job.color) article.color = job.color;
 
     if (job.mode === "reader") {
       await openReader(article);
@@ -311,6 +430,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     try {
       if (msg.type === "ping") {
         sendResponse(await serverStatus());
+        // Opening the popup is the cheapest moment to re-check; not awaited,
+        // so it never delays the status the popup is waiting on.
+        checkForUpdate();
         return;
       }
       if (msg.type === "acceptInvite") {
@@ -331,11 +453,28 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return;
       }
       if (msg.type === "convert") {
-        const job = await addJob(msg.mode, await activeTab());
+        const tab = msg.source === "stash" ? null : await activeTab();
+        const job = await addJob(msg.mode, tab, msg);
         // Not awaited: the popup gets the job id now and follows the rest in
         // storage, so closing it can't strand the conversion.
         runJob(job);
         sendResponse({ ok: true, id: job.id });
+        return;
+      }
+      if (msg.type === "updateState") {
+        sendResponse(await updateState());
+        return;
+      }
+      if (msg.type === "checkUpdate") {
+        await checkForUpdate();
+        sendResponse(await updateState());
+        return;
+      }
+      if (msg.type === "dismissUpdate") {
+        const { latestVersion } = await chrome.storage.local.get({ latestVersion: "" });
+        await chrome.storage.local.set({ dismissedVersion: latestVersion });
+        await refreshBadge();
+        sendResponse({ ok: true });
         return;
       }
       if (msg.type === "getJobs") {
