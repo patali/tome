@@ -84,7 +84,7 @@ func buildHTML(a article.Article) string {
 	}
 	title := strings.TrimSpace(a.Title)
 	if title == "" {
-		title = "Untitled X Article"
+		title = "Untitled Article"
 	}
 	page := fmt.Sprintf("@page { size: %s; margin: %s; }", dev.size, dev.margin)
 
@@ -104,6 +104,7 @@ func buildHTML(a article.Article) string {
 		"<article class=\"article-body\">" + a.Content + "</article>"
 	return strings.NewReplacer(
 		"{{PAGE}}", page,
+		"{{FONTS}}", fontCSS(),
 		"{{CSS}}", css,
 		"{{TITLE}}", html.EscapeString(title),
 		"{{BODY}}", body,
@@ -213,11 +214,9 @@ const htmlTemplate = `<!DOCTYPE html>
 <html lang="en"{{ROOTATTRS}}>
 <head>
 <meta charset="utf-8">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <title>{{TITLE}}</title>
 <style>
+{{FONTS}}
 {{PAGE}}
 {{CSS}}
 </style>

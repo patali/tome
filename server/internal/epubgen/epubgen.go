@@ -98,7 +98,7 @@ func metaLine(a article.Article) string {
 func Build(a article.Article) (data []byte, filename string, err error) {
 	title := strings.TrimSpace(a.Title)
 	if title == "" {
-		title = "Untitled X Article"
+		title = "Untitled Article"
 	}
 
 	book, err := epub.NewEpub(title)

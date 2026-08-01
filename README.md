@@ -5,9 +5,9 @@
 <h1 align="center">Tome</h1>
 
 Turn web articles into beautifully typeset, e-ink-optimized documents on your
-Kindle. Today Tome handles **X (Twitter) articles** — long-form posts locked
-behind login, unreachable by scrapers — with Medium, Substack, and general blogs
-planned next.
+Kindle. It works on ordinary article pages — blogs, news, long-form posts — and
+because the extension reads the page you already have open, it handles articles
+behind a login that scrapers can't reach.
 
 **How it works:** a browser extension extracts the article from the live DOM of
 the page you're already reading (so authentication is never an issue), then a
@@ -32,8 +32,8 @@ Browser (you, logged in)          Local Go server (:8080)
    admin account: `go run ./cmd/tome init-admin --email you@example.com
    --kindle you@kindle.com` (prints your API key once).
 3. In the popup → **Server settings**, paste the API key.
-4. Open an X article, click the **Tome** toolbar button →
-   **Send to Kindle** (or **Open reader tab** → `Cmd+P` → Save as PDF).
+4. Open an article, click the **Tome** toolbar button →
+   **Send to Kindle** (or **Open preview** → `Cmd+P` → Save as PDF).
 
 ## Self-host for your friends
 
@@ -69,8 +69,9 @@ endpoint docs, and container caveats in [`server/README.md`](server/README.md).
   the PDF renders 1:1 on the device, no magnification.
 - **Dense e-ink typography** — Literata 9.5 pt, ~360 words/page on Scribe;
   tables, code blocks, and links (underline style) all preserved.
-- **Dedicated X extractor** — reads X's stable `data-testid` landmarks for
-  title, byline, date, cover image, and body; Readability.js as the generic
-  fallback for any other page.
-- **Zero-config delivery on macOS** — without SMTP credentials, Tome opens
-  Mail.app with the PDF attached and your Kindle address filled in.
+- **Pluggable extractors** — Readability.js handles pages generally, and a
+  source can add its own extractor when the generic pass falls short (X ships
+  one, reading its `data-testid` landmarks for title, byline, date and body).
+- **Bundled fonts, no third-party calls** — the reader and the PDF renderer
+  ship Literata and JetBrains Mono locally, so previewing works offline and
+  nothing tells an outside service what you're reading.
