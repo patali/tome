@@ -104,7 +104,7 @@ func buildHTML(a article.Article) string {
 		"<article class=\"article-body\">" + a.Content + "</article>"
 	return strings.NewReplacer(
 		"{{PAGE}}", page,
-		"{{FONTS}}", fontCSS(),
+		"{{FONTS}}", fontCSS(a.Font),
 		"{{CSS}}", css,
 		"{{TITLE}}", html.EscapeString(title),
 		"{{BODY}}", body,
@@ -125,7 +125,11 @@ func rootAttrs(a article.Article) string {
 	if a.Color == "color" {
 		color = "color"
 	}
-	return fmt.Sprintf(` data-device=%q data-color=%q`, device, color)
+	font := a.Font
+	if _, ok := BodyFonts[font]; !ok {
+		font = DefaultBodyFont
+	}
+	return fmt.Sprintf(` data-device=%q data-color=%q data-font=%q`, device, color, font)
 }
 
 // Build renders the article to PDF bytes via headless Chrome.

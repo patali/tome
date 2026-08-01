@@ -31,16 +31,26 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 1. Open an article and **scroll through it once** so images and text load.
 2. Click the **Tome** toolbar button — the popup shows up to two actions
    (each can be hidden from the settings page, gear icon **⚙**):
-   - **Open preview** → clean reader tab. Its toolbar picks the device, flips
-     images between **B&W** and **Colour**, and offers `Cmd+P` →
-     **Save as PDF** or **Send to Kindle** — the send uses the same job queue
-     as the popup, and carries whichever device and colour you chose.
+   - **Open preview** → clean reader tab. A panel docked to the right picks the
+     device, flips images between **B&W** and **Colour**, switches the reading
+     font, and offers `Cmd+P` → **Save as PDF** or **Send to Kindle** — the send
+     uses the same job queue as the popup and carries whichever device, colour
+     and font you chose. Collapse the panel with the tab on its edge to read
+     without it in the way; the state is remembered.
    - **Send to Kindle** → the server renders a PDF and Resend emails it
      straight to your Kindle address.
 
 Images are grayscaled by default because e-ink can't show colour and
 flattening early keeps contrast predictable. **Colour** is there for a colour
 Kindle, or a PDF you'll read on a screen.
+
+The **reading font** can be set in the preview panel or on the settings page —
+they edit the same preference. Six bundled faces, all chosen for e-ink (sturdy
+strokes, open counters, generous x-heights rather than delicate high-contrast
+shapes that grey out on a reflective display): **Literata** (default),
+**Source Serif 4**, **Merriweather**, **Libre Baskerville**, **Inter** and
+**Atkinson Hyperlegible**. Code stays JetBrains Mono throughout. The choice
+travels with each conversion, so the document matches the preview.
 
 Conversions run in the background service worker, not in the popup. Clicking
 the page dismisses the popup — that's unavoidable for a browser popup — but the
@@ -102,7 +112,8 @@ and hitting reload on the extension card. Sign-in survives.
 | `extractors/generic.js` | Readability fallback for every other page (blogs, news, ...). |
 | `reader.html` | The e-ink reader page. No inline scripts (MV3 CSP). |
 | `reader.css` | **The single source of truth for e-ink typography.** Used by the reader page and shipped in the Send-to-Kindle payload so the server's PDF renders identically. Tune type here and only here. |
-| `reader.js` | Fills the page from the stashed article; device + print toolbar. |
+| `reader.js` | Fills the page from the stashed article; the collapsible right-hand panel (device / images / font / send). Sanitizes the extracted markup on the way in — it is page-controlled and this is a privileged page. |
+| `fonts.css` / `fonts/` | The bundled webfonts and their `@font-face` rules — six body faces plus JetBrains Mono, all SIL OFL 1.1 with notices included. Nothing is fetched from a font CDN. See `fonts/README.md`. |
 | `lib/Readability.js` | Mozilla Readability v0.5.0, vendored unmodified. |
 | `icons/` | Tome icon (16/48/128 px, transparent background) — toolbar button, popup header, reader favicon. Source art in `docs/assets/tome-icon.png`. |
 

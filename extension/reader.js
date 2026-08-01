@@ -22,7 +22,7 @@ function setDevice(name) {
   document.documentElement.dataset.device = name;
   var st = document.getElementById("tome-page-style");
   if (st) st.textContent = "@page { size: " + d.size + "; margin: " + d.margin + "; }";
-  setPressed("#tome-toolbar button[data-device]", "device", name);
+  setPressed("#tome-panel button[data-device]", "device", name);
 }
 
 // Grayscale is the default (see reader.css); this just flips the data
@@ -30,11 +30,23 @@ function setDevice(name) {
 function setColor(mode) {
   var m = mode === "color" ? "color" : "bw";
   document.documentElement.dataset.color = m;
-  setPressed("#tome-toolbar button[data-color]", "color", m);
+  setPressed("#tome-panel button[data-color]", "color", m);
+}
+
+// Changing the face here writes the same preference the settings page edits —
+// one setting in two places beats two that can disagree.
+function setFont(key, persist) {
+  var k = key || "literata";
+  document.documentElement.dataset.font = k;
+  setPressed("#tome-panel button[data-font]", "font", k);
+  if (persist && typeof chrome !== "undefined" && chrome.storage && chrome.storage.sync) {
+    chrome.storage.sync.set({ readingFont: k });
+  }
 }
 
 function currentDevice() { return document.documentElement.dataset.device || "scribe"; }
 function currentColor() { return document.documentElement.dataset.color || "bw"; }
+function currentFont() { return document.documentElement.dataset.font || "literata"; }
 
 function esc(s) {
   return String(s == null ? "" : s)
@@ -186,9 +198,35 @@ document.getElementById("tome-toolbar").addEventListener("click", function (e) {
   var dev = e.target.closest("button[data-device]");
   if (dev) { setDevice(dev.dataset.device); return; }
   var col = e.target.closest("button[data-color]");
-  if (col) setColor(col.dataset.color);
+  if (col) { setColor(col.dataset.color); return; }
+  var fnt = e.target.closest("button[data-font]");
+  if (fnt) setFont(fnt.dataset.font, true);
 });
 document.getElementById("tome-print").addEventListener("click", function () { window.print(); });
+
+/* --- Collapsing the panel -----------------------------------------------
+ *
+ * The panel overlays the page, so on a narrow window it competes with the
+ * text. Collapsing leaves a thin tab and gives the column the full width.
+ * The state is remembered, since it's a reading preference, not a per-tab one.
+ */
+
+var toolbarEl = document.getElementById("tome-toolbar");
+var toggleEl = document.getElementById("tome-toggle");
+
+function setCollapsed(collapsed, persist) {
+  toolbarEl.dataset.collapsed = collapsed ? "true" : "false";
+  toggleEl.textContent = collapsed ? "‹" : "›";
+  toggleEl.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  toggleEl.title = collapsed ? "Show controls" : "Hide controls";
+  if (persist && typeof chrome !== "undefined" && chrome.storage && chrome.storage.sync) {
+    chrome.storage.sync.set({ previewPanelCollapsed: !!collapsed });
+  }
+}
+
+toggleEl.addEventListener("click", function () {
+  setCollapsed(toolbarEl.dataset.collapsed !== "true", true);
+});
 
 /* --- Send to Kindle ------------------------------------------------------
  *
@@ -215,7 +253,7 @@ if (sendBtn) {
     chrome.runtime.sendMessage(
       {
         type: "convert", mode: "kindle", source: "stash",
-        device: currentDevice(), color: currentColor(),
+        device: currentDevice(), color: currentColor(), font: currentFont(),
         title: (shown && shown.title) || "", url: (shown && shown.url) || ""
       },
       function (r) {
@@ -246,6 +284,14 @@ if (sendBtn) {
 // --- load the stashed article ---
 setDevice("scribe");
 setColor("bw");
+setFont("literata");
+setCollapsed(false);
+if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.sync) {
+  chrome.storage.sync.get({ readingFont: "literata", previewPanelCollapsed: false }, function (v) {
+    setFont(v.readingFont);
+    setCollapsed(v.previewPanelCollapsed);
+  });
+}
 if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.session) {
   chrome.storage.session.get("article", function (data) {
     render(data && data.article);

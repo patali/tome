@@ -16,6 +16,7 @@ type Article struct {
 	Device        string `json:"device"` // optional: "scribe" | "scribe3" | "paperwhite"
 	Format        string `json:"format"` // optional: "pdf" | "epub"
 	Color         string `json:"color"`  // optional: "bw" (default, e-ink) | "color"
+	Font          string `json:"font"`   // optional: body face key — see pdfgen.BodyFonts
 	CSS           string `json:"css"`    // optional: reader stylesheet from the extension (single source of truth)
 }
 
