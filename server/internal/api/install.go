@@ -3,6 +3,8 @@ package api
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -43,6 +45,62 @@ func firstValue(h string) string {
 		h = h[:i]
 	}
 	return strings.ToLower(strings.TrimSpace(h))
+}
+
+// extensionVersion reports the version of the extension this server hands out,
+// so an installed copy can tell whether it has fallen behind. Returns "" if it
+// can't be determined — callers treat that as "no opinion" rather than an
+// error, since a missing bundle already shows up at /extension.zip.
+//
+// Read per call rather than cached: /status is low-traffic, and a stale
+// version here would be reported to users as fact.
+func (s *Server) extensionVersion() string {
+	if s.ExtensionPath == "" {
+		return ""
+	}
+	fi, err := os.Stat(s.ExtensionPath)
+	if err != nil {
+		return ""
+	}
+	var raw []byte
+	if fi.IsDir() {
+		raw, err = os.ReadFile(filepath.Join(s.ExtensionPath, "manifest.json"))
+	} else {
+		raw, err = manifestFromZip(s.ExtensionPath)
+	}
+	if err != nil {
+		return ""
+	}
+	var m struct {
+		Version string `json:"version"`
+	}
+	if json.Unmarshal(raw, &m) != nil {
+		return ""
+	}
+	return m.Version
+}
+
+// manifestFromZip pulls manifest.json out of the packaged extension. Both
+// producers (the Dockerfile's zip and zipDir here) nest it one level down
+// under tome-extension/.
+func manifestFromZip(path string) ([]byte, error) {
+	zr, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+	for _, f := range zr.File {
+		if filepath.Base(f.Name) != "manifest.json" || strings.Count(f.Name, "/") > 1 {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+		return io.ReadAll(io.LimitReader(rc, 1<<20))
+	}
+	return nil, fmt.Errorf("manifest.json not found in %s", path)
 }
 
 // handleExtensionZip serves the browser extension for manual installation.

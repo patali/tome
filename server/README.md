@@ -110,7 +110,7 @@ Auth is `Authorization: Bearer tome_…`. Errors are always `{ "error": "…" }`
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| `GET` | `/status` | — | `{ ok, service, version, authRequired, defaultFormat, pdfAvailable }` |
+| `GET` | `/status` | — | `{ ok, service, version, authRequired, defaultFormat, pdfAvailable, extensionVersion }` — `extensionVersion` is read from the bundled extension's manifest, so installs can tell they've fallen behind |
 | `GET` | `/` , `/install` | — | HTML install + Kindle-setup guide for invitees |
 | `GET` | `/extension.zip` | — | the browser extension, for manual install |
 | `POST` | `/auth/accept-invite` | — (rate-limited) | `{code, email, kindleEmail}` → `{apiKey, …}` — key shown once |
@@ -119,8 +119,11 @@ Auth is `Authorization: Bearer tome_…`. Errors are always `{ "error": "…" }`
 | `GET` / `PUT` | `/me` | user | own profile / update own `kindleEmail` |
 | * | `/admin/invites[…]`, `/admin/users[…]`, `/admin/settings` | admin | see CLI above; the Resend API key is write-only (never echoed) |
 
-Article JSON: `{ title, byline, publishedTime, content (HTML), url, device?, format?, css? }`.
+Article JSON: `{ title, byline, publishedTime, content (HTML), url, device?, format?, color?, css? }`.
 - `device`: `scribe` (default) · `scribe3` · `paperwhite` — sets the PDF page size.
+- `color`: `bw` (default) · `color` — grayscales images or leaves them alone.
+  Both are applied as `data-device` / `data-color` on `<html>`, which is what
+  the shipped stylesheet keys its rules off.
 - `css`: the reader stylesheet; the extension ships `extension/reader.css` (the
   single source of truth) in every request. The server's embedded fallback is a
   compact approximation — don't tune typography there.

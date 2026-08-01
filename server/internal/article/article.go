@@ -15,6 +15,7 @@ type Article struct {
 	URL           string `json:"url"`
 	Device        string `json:"device"` // optional: "scribe" | "scribe3" | "paperwhite"
 	Format        string `json:"format"` // optional: "pdf" | "epub"
+	Color         string `json:"color"`  // optional: "bw" (default, e-ink) | "color"
 	CSS           string `json:"css"`    // optional: reader stylesheet from the extension (single source of truth)
 }
 

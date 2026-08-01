@@ -72,6 +72,34 @@ send({ type: "ping" }).then(function (s) {
     : "Ask the admin to configure Resend delivery";
 });
 
+/* --- Update notice ------------------------------------------------------ */
+
+/* The extension is installed unpacked, so nothing updates it automatically.
+   Surface it once, quietly, with a way to say "not now". */
+
+var updateEl = document.getElementById("update");
+var updateText = document.getElementById("update-text");
+
+function showUpdate(st) {
+  if (!st.showUpdate) { updateEl.hidden = true; return; }
+  updateText.textContent = "Version " + st.latestVersion + " is available (you have " + st.installed + ").";
+  updateEl.hidden = false;
+}
+
+send({ type: "updateState" }).then(showUpdate);
+
+document.getElementById("update-how").addEventListener("click", function (e) {
+  e.preventDefault();
+  chrome.storage.sync.get({ serverUrl: "" }, function (v) {
+    if (v.serverUrl) chrome.tabs.create({ url: v.serverUrl + "/install" });
+  });
+});
+
+document.getElementById("update-dismiss").addEventListener("click", async function () {
+  await send({ type: "dismissUpdate" });
+  updateEl.hidden = true;
+});
+
 /* --- Queue -------------------------------------------------------------- */
 
 var ICON = { running: "⏳", done: "✓", error: "✕" };

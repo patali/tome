@@ -19,6 +19,9 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		"authRequired":  true,
 		"defaultFormat": defaultFormat(),
 		"pdfAvailable":  pdfgen.Available(),
+		// The extension can't self-update (it's a "Load unpacked" install), so
+		// it compares this against its own manifest and tells the user.
+		"extensionVersion": s.extensionVersion(),
 	})
 }
 
