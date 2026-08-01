@@ -1,0 +1,88 @@
+# Build the arm64 image and roll flintbox onto it.
+#
+# Fires when a PR merges into `release` (a merge is a push to that branch), so
+# `main` stays the integration branch and shipping is an explicit main->release
+# PR. workflow_dispatch is here for redeploying without an empty commit.
+#
+# Requires, in Settings -> Secrets and variables -> Actions:
+#   secrets: TS_OAUTH_CLIENT_ID, TS_OAUTH_SECRET
+#   vars:    PI_HOST (flintbox), PI_USER (patali)
+# GHCR auth uses the built-in GITHUB_TOKEN — no stored registry credential.
+
+name: deploy
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+# Never let two deploys race. The Pi-side script also takes an flock, but
+# serialising here means the second run waits instead of building an image it
+# is about to have superseded.
+concurrency:
+  group: deploy-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    # Native arm64 — the Pi is a Raspberry Pi 4. An x86 runner would need QEMU,
+    # which turns the Go build and the extension zip into a multi-minute crawl.
+    # These runners are free for public repos; on a private repo they need a
+    # paid plan, and this job will fail to start.
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        # Short SHA, matching what server/push.sh produces by hand, so an image
+        # built here and one built locally are named the same way.
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/tome:${{ steps.tag.outputs.sha }}
+          # Attestations land in GHCR as bogus "unknown/unknown" platform rows
+          # in the package listing. Same reason push.sh disables them.
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Join tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          # Ephemeral, tagged node. ACLs scope tag:ci to flintbox:22 only.
+          tags: tag:ci
+
+      - name: Deploy to flintbox
+        # No SSH key: Tailscale SSH authenticates on the runner's tailnet
+        # identity. accept-new because each run is a fresh node with no
+        # known_hosts; BatchMode so an auth problem fails instead of hanging
+        # on a prompt.
+        run: |
+          ssh -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=15 \
+              "${{ vars.PI_USER }}@${{ vars.PI_HOST }}" \
+              /home/patali/bin/tome-deploy.sh "${{ steps.tag.outputs.sha }}"
