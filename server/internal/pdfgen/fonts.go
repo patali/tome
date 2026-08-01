@@ -25,6 +25,21 @@ import (
 //go:embed fonts/fonts.css fonts/*.woff2
 var fontFS embed.FS
 
+// FontFile returns an embedded font by base name, for the places that serve one
+// over HTTP rather than inlining it as a data: URI. A name containing a
+// separator is refused: embed.FS cannot be escaped anyway, but the check keeps
+// that a property of this function rather than of the filesystem behind it.
+func FontFile(name string) ([]byte, bool) {
+	if name == "" || path.Base(name) != name {
+		return nil, false
+	}
+	b, err := fontFS.ReadFile("fonts/" + name)
+	if err != nil {
+		return nil, false
+	}
+	return b, true
+}
+
 // BodyFonts are the body faces a client may choose, keyed by the value sent as
 // the article's "font" field and mirrored onto <html data-font>. The CSS family
 // name must match the @font-face rules in fonts.css.

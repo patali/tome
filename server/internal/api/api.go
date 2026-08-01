@@ -28,6 +28,7 @@ type Server struct {
 	ExtensionPath string // extension zip (or source dir) served at /extension.zip
 	PrivacyPath   string // PRIVACY.md, served at /privacy
 	limiter       *auth.Limiter
+	inviteLimiter *auth.Limiter
 }
 
 func New(st *store.Store, resendBase string) *Server {
@@ -35,6 +36,10 @@ func New(st *store.Store, resendBase string) *Server {
 		Store:      st,
 		ResendBase: resendBase,
 		limiter:    auth.NewLimiter(10, time.Hour),
+		// Counts every attempt, including ones rejected for a malformed
+		// address, so this has to leave room for a person fumbling their own
+		// email a couple of times before it starts refusing them.
+		inviteLimiter: auth.NewLimiter(5, time.Hour),
 	}
 }
 
@@ -43,11 +48,15 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", s.handleStatus)
 	// {$} matches only "/" — unknown paths still 404 rather than land here.
-	mux.HandleFunc("GET /{$}", s.handleInstallPage)
+	mux.HandleFunc("GET /{$}", s.handleLandingPage)
 	mux.HandleFunc("GET /install", s.handleInstallPage)
+	mux.HandleFunc("GET /fonts/{name}", s.handleFont)
 	mux.HandleFunc("GET /extension.zip", s.handleExtensionZip)
 	mux.HandleFunc("GET /privacy", s.handlePrivacy)
 	mux.Handle("POST /auth/accept-invite", s.limiter.Wrap(http.HandlerFunc(s.handleAcceptInvite)))
+	// Tighter than invite redemption: this one sends mail, and a person only
+	// ever needs it once.
+	mux.Handle("POST /invite-request", s.inviteLimiter.Wrap(http.HandlerFunc(s.handleInviteRequest)))
 
 	mux.Handle("POST /convert", auth.RequireUser(s.Store, http.HandlerFunc(s.handleConvert)))
 	mux.Handle("POST /send-to-kindle", auth.RequireUser(s.Store, http.HandlerFunc(s.handleSendToKindle)))

@@ -3,6 +3,8 @@ package auth
 import (
 	"net"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -47,14 +49,42 @@ func (l *Limiter) Allow(ip string) bool {
 	return true
 }
 
-// Wrap enforces the limit keyed by the connection's remote IP. Deliberately
-// ignores X-Forwarded-For — Tome is designed to face clients directly.
+// trustedIPHeader (TOME_TRUSTED_IP_HEADER, e.g. "CF-Connecting-IP") names a
+// header carrying the real client IP. Unset by default: a forwarding header is
+// trivially forged by anyone who can reach the server directly, and believing
+// one would turn per-IP limits into no limits at all.
+//
+// Set it only when every request provably arrives through a proxy that
+// overwrites the header. That is true of this project's own deployment — the
+// stack publishes no ports and cloudflared is the sole ingress — and it matters
+// there, because otherwise every visitor shares the tunnel's compose-network
+// address and one caller's attempts exhaust everyone's budget.
+var trustedIPHeader = strings.TrimSpace(os.Getenv("TOME_TRUSTED_IP_HEADER"))
+
+// ClientIP is the address rate limits are keyed on.
+func ClientIP(r *http.Request) string {
+	if trustedIPHeader != "" {
+		// Leftmost entry: chained proxies append, so the first is the origin.
+		if v := r.Header.Get(trustedIPHeader); v != "" {
+			if i := strings.Index(v, ","); i >= 0 {
+				v = v[:i]
+			}
+			if v = strings.TrimSpace(v); v != "" {
+				return v
+			}
+		}
+	}
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return ip
+}
+
+// Wrap enforces the limit keyed by the client IP.
 func (l *Limiter) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			ip = r.RemoteAddr
-		}
+		ip := ClientIP(r)
 		if !l.Allow(ip) {
 			writeError(w, http.StatusTooManyRequests, "too many attempts, try again later")
 			return
