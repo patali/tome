@@ -131,6 +131,17 @@ async function readerCSS() {
   }
 }
 
+// readingFont is the body face chosen in settings. It rides along with every
+// conversion so the document matches what the preview showed.
+async function readingFont() {
+  try {
+    const { readingFont } = await chrome.storage.sync.get({ readingFont: "literata" });
+    return readingFont || "literata";
+  } catch (e) {
+    return "literata";
+  }
+}
+
 // deliver POSTs the article to /send-to-kindle (Resend -> the user's Kindle).
 async function deliver(article, path) {
   article.css = await readerCSS();
@@ -352,6 +363,7 @@ async function addJob(mode, tab, opts) {
     source: o.source === "stash" ? "stash" : "tab",
     device: o.device || "",
     color: o.color || "",
+    font: o.font || "",
     title: o.title || (tab && tab.title) || "This page",
     url: o.url || (tab && tab.url) || "",
     state: "running",
@@ -395,9 +407,11 @@ async function runJob(job) {
     if (article.error) throw new Error(article.error);
     console.log("[tome] article:", article.extractor || job.source, "->", article.title);
     if (article.title) await patchJob(job.id, { title: article.title });
-    // Preview-page choices override whatever the article was stashed with.
+    // Preview-page choices override whatever the article was stashed with;
+    // the body face falls back to the stored setting for popup-driven sends.
     if (job.device) article.device = job.device;
     if (job.color) article.color = job.color;
+    article.font = job.font || (await readingFont());
 
     if (job.mode === "reader") {
       await openReader(article);

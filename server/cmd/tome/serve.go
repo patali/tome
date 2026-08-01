@@ -25,6 +25,21 @@ func extensionPath() string {
 	return ""
 }
 
+// privacyPath locates PRIVACY.md, served at /privacy. Same shape as
+// extensionPath: baked into the image, or the repo copy when run from source.
+// The repo file stays the single source of truth — nothing is duplicated.
+func privacyPath() string {
+	if p := os.Getenv("TOME_PRIVACY_PATH"); p != "" {
+		return p
+	}
+	for _, p := range []string{"/opt/tome/PRIVACY.md", "../PRIVACY.md"} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 func dataDir() string {
 	if d := os.Getenv("TOME_DATA_DIR"); d != "" {
 		return d
@@ -46,6 +61,7 @@ func runServe(_ []string) {
 
 	srv := api.New(st, os.Getenv("TOME_RESEND_BASE_URL"))
 	srv.ExtensionPath = extensionPath()
+	srv.PrivacyPath = privacyPath()
 
 	log.Printf("tome %s listening on http://localhost%s (data: %s)", api.Version, addr, dataDir())
 	if !pdfgen.Available() {

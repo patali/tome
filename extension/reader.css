@@ -161,6 +161,25 @@ hr { border: none; border-top: 0.5pt solid var(--rule); margin: 0.9em 0; }
   margin-top: 0.25em;
 }
 
+/* --- Body face ----------------------------------------------------------- */
+/* Chosen in the extension's settings and mirrored onto <html data-font> by the
+   reader and by the server, so the PDF matches what the preview showed. Every
+   family here is bundled (fonts/); the trailing stack only matters if a face
+   somehow fails to load. Code always stays monospaced — only the body changes.
+
+   All six are picked for e-ink: sturdy strokes and open counters, rather than
+   the high stroke contrast that greys out on a reflective display. */
+html[data-font="sourceserif"]  { --serif: "Source Serif 4", Georgia, serif; }
+html[data-font="merriweather"] { --serif: "Merriweather", Georgia, serif; }
+html[data-font="baskerville"]  { --serif: "Libre Baskerville", Georgia, serif; }
+html[data-font="inter"]        { --serif: "Inter", ui-sans-serif, system-ui, sans-serif; }
+html[data-font="atkinson"]     { --serif: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif; }
+
+/* Merriweather and Libre Baskerville run large for their point size; nudging
+   the body down keeps roughly the same words-per-page as the default. */
+html[data-font="merriweather"] { --body-size: 9pt; }
+html[data-font="baskerville"]  { --body-size: 9pt; }
+
 /* --- Colour mode --------------------------------------------------------- */
 /* Grayscale is the default: e-ink can't show colour, and flattening it here
    keeps contrast predictable. data-color="color" opts back in — worth having
@@ -185,31 +204,73 @@ html[data-device="paperwhite"] { --body-size: 9.5pt; --col-max: 66ch; }
     border-radius: 2px;
   }
 
+  /* Controls dock to the right edge and collapse to a tab, so the page can be
+     read without a panel sitting over it. The state is remembered. */
   #tome-toolbar {
-    position: fixed; top: 12px; right: 12px; z-index: 9999;
-    display: flex; gap: 6px; align-items: center;
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 9999;
+    display: flex; align-items: flex-start;
     font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px;
-    background: #fff; border: 1px solid #bbb; border-radius: 8px;
-    padding: 6px 8px; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    pointer-events: none; /* only the panel and tab are clickable */
   }
-  #tome-toolbar button {
-    font: inherit; cursor: pointer; border: 1px solid #ccc;
-    background: #f6f6f6; border-radius: 5px; padding: 3px 8px;
+  /* The tab reads as part of the panel: it sits flush against it, overlapping
+     by a pixel so the two borders merge into one, drops its own right border,
+     and casts its shadow leftward only — a shadow on the shared edge is what
+     makes a tab look detached. Offset down the panel's corner radius so the
+     rounded corner doesn't leave a notch beside it. */
+  #tome-toggle {
+    pointer-events: auto;
+    margin: 26px -1px 0 0; padding: 12px 5px;
+    font: inherit; line-height: 1; cursor: pointer;
+    background: #fff; color: #555;
+    border: 1px solid #bbb; border-right: none;
+    border-radius: 8px 0 0 8px;
+    box-shadow: -2px 1px 5px rgba(0, 0, 0, 0.12);
   }
-  #tome-toolbar button[aria-pressed="true"] { background: #111; color: #fff; border-color: #111; }
-  #tome-toolbar .tome-print { border-color: #111; background: #111; color: #fff; }
-  #tome-toolbar .tome-send { border-color: #111; background: #111; color: #fff; }
-  #tome-toolbar button:disabled { opacity: 0.5; cursor: default; }
-  #tome-toolbar .tome-label { color: #666; }
-  #tome-toolbar .tome-sep { width: 1px; align-self: stretch; background: #ddd; margin: 0 2px; }
+  #tome-toggle:hover { background: #f2f2f2; }
+  /* Collapsed, there is no panel to meet — sit flush to the window edge. */
+  #tome-toolbar[data-collapsed="true"] #tome-toggle {
+    margin-right: 0;
+    box-shadow: -2px 1px 6px rgba(0, 0, 0, 0.18);
+  }
 
-  /* Sits under the toolbar, top-right, so it doesn't shift the page. */
+  #tome-panel {
+    pointer-events: auto;
+    width: 186px; max-height: 100vh; overflow-y: auto;
+    margin: 12px 12px 12px 0; padding: 10px 11px;
+    background: #fff; border: 1px solid #bbb; border-radius: 8px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+  }
+  #tome-toolbar[data-collapsed="true"] #tome-panel { display: none; }
+
+  .tome-group { margin: 0 0 11px; }
+  .tome-group:last-child { margin-bottom: 0; }
+  .tome-label {
+    display: block; margin: 0 0 4px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #888;
+  }
+  .tome-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  #tome-panel button {
+    font: inherit; cursor: pointer; border: 1px solid #ccc;
+    background: #f6f6f6; border-radius: 5px; padding: 4px 8px;
+  }
+  #tome-panel button[aria-pressed="true"] { background: #111; color: #fff; border-color: #111; }
+  #tome-panel button:disabled { opacity: 0.5; cursor: default; }
+  /* Each font button previews its own face — picking type by name is guesswork. */
+  #tome-panel button[data-font] { display: block; width: 100%; text-align: left; font-size: 13px; }
+  #tome-panel .tome-print,
+  #tome-panel .tome-send {
+    display: block; width: 100%; margin-top: 5px;
+    border-color: #111; background: #111; color: #fff; text-align: center;
+  }
+
+  /* Tucked under the panel so it never shifts the page. */
   #tome-send-status {
-    position: fixed; top: 56px; right: 12px; z-index: 9999; max-width: 320px;
+    position: fixed; top: 12px; right: 210px; z-index: 9999; max-width: 300px;
     font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px;
     background: #fff; border: 1px solid #bbb; border-radius: 8px;
     padding: 8px 10px; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
   }
+  #tome-toolbar[data-collapsed="true"] ~ #tome-send-status { right: 52px; }
   #tome-send-status.ok { border-color: #1a9e4b; color: #127035; }
   #tome-send-status.err { border-color: #d1342f; color: #a5231f; }
 

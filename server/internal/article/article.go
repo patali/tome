@@ -16,6 +16,7 @@ type Article struct {
 	Device        string `json:"device"` // optional: "scribe" | "scribe3" | "paperwhite"
 	Format        string `json:"format"` // optional: "pdf" | "epub"
 	Color         string `json:"color"`  // optional: "bw" (default, e-ink) | "color"
+	Font          string `json:"font"`   // optional: body face key — see pdfgen.BodyFonts
 	CSS           string `json:"css"`    // optional: reader stylesheet from the extension (single source of truth)
 }
 
@@ -31,7 +32,7 @@ func (a Article) BaseName() string {
 	name := unsafeRe.ReplaceAllString(a.Title, "")
 	name = strings.TrimSpace(wsRe.ReplaceAllString(name, " "))
 	if name == "" {
-		name = "X Article"
+		name = "Article"
 	}
 	if r := []rune(name); len(r) > 120 { // keep it a sane length (rune-safe)
 		name = strings.TrimSpace(string(r[:120]))

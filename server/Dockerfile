@@ -28,6 +28,7 @@ RUN apk add --no-cache chromium ca-certificates tzdata su-exec \
     && mkdir -p /data && chown tome:tome /data
 COPY --from=build /out/tome /usr/local/bin/tome
 COPY --from=build /out/extension.zip /opt/tome/extension.zip
+COPY PRIVACY.md /opt/tome/PRIVACY.md
 COPY server/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

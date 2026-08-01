@@ -69,7 +69,7 @@ Send-to-Kindle (originally a later Go-server phase) got built early. What exists
 - **Send-to-Kindle delivery, two paths** (auto-selected): **SMTP** when configured,
   else a macOS **Mail.app fallback** (`osascript` opens a pre-composed message with
   the attachment — no SMTP creds needed; you hit Send). Default Kindle address
-  `yourname@kindle.com`. Verified the Mail.app hand-off end-to-end.
+  is configurable (`yourname@kindle.com`). Verified the Mail.app hand-off end-to-end.
 - **PDF rendering via headless Chrome** (`server/internal/pdfgen/`, **default format**):
   renders the extracted HTML with `--print-to-pdf` at device-accurate page sizes
   (verified 157×210mm for Scribe). A real browser fetches images and honors the

@@ -170,6 +170,24 @@ func zipDir(dir string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// handlePrivacy serves PRIVACY.md. Served as text so there is exactly one copy
+// of the policy in the repo — a hosted URL is required for a store listing, and
+// a second HTML rendering would be a second thing to keep true.
+func (s *Server) handlePrivacy(w http.ResponseWriter, r *http.Request) {
+	if s.PrivacyPath == "" {
+		errJSON(w, http.StatusNotFound, "privacy policy not bundled (TOME_PRIVACY_PATH)")
+		return
+	}
+	data, err := os.ReadFile(s.PrivacyPath)
+	if err != nil {
+		errJSON(w, http.StatusNotFound, "privacy policy not found at "+s.PrivacyPath)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
 func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 	set, _ := s.Store.GetSettings()
 	data := struct {
@@ -278,7 +296,7 @@ address</b> — type the new one and press <b>Save</b>. Do this whenever you
 switch Kindles, since the address is per-device.</p>
 
 <h2>4 · Use it</h2>
-<p>Open an article on X, scroll it once so images load, click the Tome button →
+<p>Open an article, scroll it once so images load, click the Tome button →
 <b>Send to Kindle</b>. That's it — it lands on your Kindle in a minute or two.
 <b>Open preview</b> gives you a print-ready view (<kbd>⌘P</kbd> → Save as PDF)
 if you'd rather keep the file.</p>
@@ -286,7 +304,13 @@ if you'd rather keep the file.</p>
 <h2>Updating</h2>
 <p>To update, download the zip again, replace the folder's contents, and press
 the ↻ reload icon on the Tome card in <code>chrome://extensions</code>. Your
-sign-in is kept.</p>
+sign-in is kept. Tome tells you when this server has a newer version than the
+copy you installed.</p>
+
+<h2>Your data</h2>
+<p>Articles you send are rendered and delivered, not kept. This server stores
+your email, your Kindle address, and a hash of your API key — nothing else.
+Full details: <a href="{{.Base}}/privacy">privacy policy</a>.</p>
 </body>
 </html>
 `))

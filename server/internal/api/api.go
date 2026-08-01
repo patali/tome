@@ -26,6 +26,7 @@ type Server struct {
 	Store         *store.Store
 	ResendBase    string // override for tests; "" = resend.DefaultBaseURL
 	ExtensionPath string // extension zip (or source dir) served at /extension.zip
+	PrivacyPath   string // PRIVACY.md, served at /privacy
 	limiter       *auth.Limiter
 }
 
@@ -45,6 +46,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.handleInstallPage)
 	mux.HandleFunc("GET /install", s.handleInstallPage)
 	mux.HandleFunc("GET /extension.zip", s.handleExtensionZip)
+	mux.HandleFunc("GET /privacy", s.handlePrivacy)
 	mux.Handle("POST /auth/accept-invite", s.limiter.Wrap(http.HandlerFunc(s.handleAcceptInvite)))
 
 	mux.Handle("POST /convert", auth.RequireUser(s.Store, http.HandlerFunc(s.handleConvert)))
