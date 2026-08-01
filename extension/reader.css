@@ -212,21 +212,31 @@ html[data-device="paperwhite"] { --body-size: 9.5pt; --col-max: 66ch; }
     font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px;
     pointer-events: none; /* only the panel and tab are clickable */
   }
+  /* The tab reads as part of the panel: it sits flush against it, overlapping
+     by a pixel so the two borders merge into one, drops its own right border,
+     and casts its shadow leftward only — a shadow on the shared edge is what
+     makes a tab look detached. Offset down the panel's corner radius so the
+     rounded corner doesn't leave a notch beside it. */
   #tome-toggle {
     pointer-events: auto;
-    margin: 12px 0 0; padding: 10px 6px;
+    margin: 26px -1px 0 0; padding: 12px 5px;
     font: inherit; line-height: 1; cursor: pointer;
-    background: #fff; color: #444;
+    background: #fff; color: #555;
     border: 1px solid #bbb; border-right: none;
     border-radius: 8px 0 0 8px;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    box-shadow: -2px 1px 5px rgba(0, 0, 0, 0.12);
   }
   #tome-toggle:hover { background: #f2f2f2; }
+  /* Collapsed, there is no panel to meet — sit flush to the window edge. */
+  #tome-toolbar[data-collapsed="true"] #tome-toggle {
+    margin-right: 0;
+    box-shadow: -2px 1px 6px rgba(0, 0, 0, 0.18);
+  }
 
   #tome-panel {
     pointer-events: auto;
     width: 186px; max-height: 100vh; overflow-y: auto;
-    margin: 12px 12px 12px 6px; padding: 10px 11px;
+    margin: 12px 12px 12px 0; padding: 10px 11px;
     background: #fff; border: 1px solid #bbb; border-radius: 8px;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
   }
