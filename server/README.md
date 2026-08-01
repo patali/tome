@@ -80,16 +80,15 @@ Accounts are still required — paste the printed admin key into the extension.
 
 ## Delivery methods
 
-Two explicit send actions (the extension shows a button for each, toggleable
-in its settings):
-
 - **Send to Kindle** (`/send-to-kindle`) — Resend emails the file straight to
   the authed user's own Kindle address. Requires the admin to have configured
   Resend; 502 otherwise.
-- **Send via email** — entirely client-side: the extension calls `/convert`,
-  then a small local helper (`extension/native-host/`) opens **the user's own
-  Mail.app** with the file attached. The server plays no Mail role, so this
-  works with the server anywhere (container, remote box).
+- **Open preview** — the extension's own reader tab, no server round trip.
+
+`/convert` still returns the rendered file to any caller that wants to handle
+delivery itself. A "Send via email" action that handed the file to the user's
+local Mail.app used to sit on top of it; it needed a native-messaging helper
+installed per machine, so it was removed from the extension.
 
 ## Admin CLI
 

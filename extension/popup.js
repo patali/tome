@@ -1,10 +1,14 @@
-/* popup.js — action buttons + status. All configuration lives in the
-   settings page (gear icon -> settings.html). */
+/* popup.js — action buttons + the running-job queue. All configuration lives
+   in the settings page (gear icon -> settings.html).
+
+   The popup is disposable: clicking the page behind it closes it and tears
+   down any pending message response. So actions only *start* a job here, and
+   everything shown comes from the job records in storage. */
 
 var readerBtn = document.getElementById("reader");
 var kindleBtn = document.getElementById("kindle");
-var mailBtn = document.getElementById("mail");
 var statusEl = document.getElementById("status");
+var queueEl = document.getElementById("queue");
 var dotEl = document.getElementById("dot");
 var serverText = document.getElementById("server-text");
 var hintEl = document.getElementById("setup-hint");
@@ -33,11 +37,10 @@ document.getElementById("open-settings").addEventListener("click", function (e) 
 // Which action buttons are shown, and how (icon+text vs icons only), are
 // user settings (settings page).
 chrome.storage.sync.get(
-  { buttons: { preview: true, kindle: true, mail: true }, buttonStyle: "text" },
+  { buttons: { preview: true, kindle: true }, buttonStyle: "text" },
   function (v) {
     readerBtn.hidden = v.buttons.preview === false;
     kindleBtn.hidden = v.buttons.kindle === false;
-    mailBtn.hidden = v.buttons.mail === false;
     document.body.classList.toggle("icons-only", v.buttonStyle === "icons");
   });
 
@@ -49,7 +52,7 @@ send({ type: "ping" }).then(function (s) {
     serverText.textContent = "server down · " + (s.url || "").replace(/^https?:\/\//, "");
     serverText.className = "muted";
     hintEl.hidden = false;
-    kindleBtn.disabled = mailBtn.disabled = true;
+    kindleBtn.disabled = true;
     return;
   }
   if (!s.signedIn) {
@@ -57,7 +60,7 @@ send({ type: "ping" }).then(function (s) {
     serverText.textContent = s.badKey ? "stored key rejected" : "sign-in required";
     serverText.className = "";
     hintEl.hidden = false;
-    kindleBtn.disabled = mailBtn.disabled = true;
+    kindleBtn.disabled = true;
     return;
   }
   dotEl.className = "dot up";
@@ -67,24 +70,86 @@ send({ type: "ping" }).then(function (s) {
   kindleBtn.title = s.resendConfigured
     ? "Email the document to " + (s.kindleEmail || "your Kindle")
     : "Ask the admin to configure Resend delivery";
-  mailBtn.disabled = !s.mailHelper;
-  mailBtn.title = s.mailHelper
-    ? "Open Mail.app with the document attached (to " + (s.kindleEmail || "your Kindle") + ")"
-    : "Install the mail helper: run extension/native-host/install.sh, then restart the browser";
 });
 
-function runAction(btn, mode, busyText, doneText) {
+/* --- Queue -------------------------------------------------------------- */
+
+var ICON = { running: "⏳", done: "✓", error: "✕" };
+
+// Ids this popup has already put on screen. Marking a job seen must not yank
+// it out from under the user who is watching it finish, so anything shown once
+// stays for the life of this popup; the set dies with the popup, which is what
+// makes a seen job disappear on the *next* open rather than immediately.
+var shownIds = [];
+
+// Show anything still running, plus finished jobs no popup has displayed yet —
+// that second group is the whole point: it's the result the user missed
+// because the popup closed while the conversion was in flight.
+function visibleJobs(jobs) {
+  return jobs.filter(function (j) {
+    return j.state === "running" || !j.seen || shownIds.indexOf(j.id) !== -1;
+  });
+}
+
+function renderQueue(jobs) {
+  var list = visibleJobs(jobs);
+  list.forEach(function (j) {
+    if (shownIds.indexOf(j.id) === -1) shownIds.push(j.id);
+  });
+  queueEl.textContent = "";
+  list.forEach(function (j) {
+    var row = document.createElement("div");
+    row.className = "job " + j.state;
+
+    var ico = document.createElement("span");
+    ico.className = "jico";
+    ico.textContent = ICON[j.state] || "•";
+
+    var body = document.createElement("div");
+    body.className = "jbody";
+    var title = document.createElement("span");
+    title.className = "jtitle";
+    title.textContent = j.title || "This page";
+    title.title = j.title || "";
+    var msg = document.createElement("span");
+    msg.className = "jmsg";
+    msg.textContent = j.message || "";
+    body.appendChild(title);
+    body.appendChild(msg);
+
+    row.appendChild(ico);
+    row.appendChild(body);
+    queueEl.appendChild(row);
+  });
+
+  // Mark the finished ones seen so they clear on the next open. Running jobs
+  // stay unseen — they haven't shown their outcome yet. Skipping the already
+  // seen matters: marking writes storage, which re-enters this function, and
+  // an unconditional mark would never stop re-marking.
+  var settled = list.filter(function (j) { return j.state !== "running" && !j.seen; })
+    .map(function (j) { return j.id; });
+  if (settled.length) send({ type: "markSeen", ids: settled });
+}
+
+send({ type: "getJobs" }).then(function (r) { renderQueue(r.jobs || []); });
+
+// Live-update while the popup happens to be open.
+chrome.storage.onChanged.addListener(function (changes, area) {
+  if (area !== "local" || !changes.jobs) return;
+  renderQueue(changes.jobs.newValue || []);
+});
+
+/* --- Actions ------------------------------------------------------------ */
+
+function runAction(btn, mode) {
   btn.addEventListener("click", async function () {
-    setStatus(busyText, "muted");
-    btn.disabled = true;
+    setStatus("");
     var r = await send({ type: "convert", mode: mode });
-    btn.disabled = false;
     if (r.error) { setStatus(r.error, "err"); return; }
-    setStatus(doneText(r), "ok");
+    // The reader opens its own tab, which closes the popup anyway.
     if (mode === "reader") window.close();
   });
 }
 
-runAction(readerBtn, "reader", "Extracting…", function () { return "Preview opened."; });
-runAction(kindleBtn, "kindle", "Converting and sending…", function (r) { return "Sent to " + (r.sentTo || "Kindle") + " ✓"; });
-runAction(mailBtn, "mail", "Converting…", function () { return "Opened in Mail — review and hit Send."; });
+runAction(readerBtn, "reader");
+runAction(kindleBtn, "kindle");

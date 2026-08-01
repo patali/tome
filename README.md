@@ -18,8 +18,8 @@ delivers it to your Kindle by email.
 Browser (you, logged in)          Local Go server (:8080)
 ┌───────────────────────┐         ┌──────────────────────────────┐
 │ Tome extension        │  POST   │ /convert        → PDF / EPUB │
-│  extractors/x.js      │ ──────▶ │ /send-to-kindle → SMTP or    │
-│  extractors/generic.js│  JSON   │                   Mail.app   │
+│  extractors/x.js      │ ──────▶ │ /send-to-kindle → Resend →   │
+│  extractors/generic.js│  JSON   │                   your Kindle│
 └───────────────────────┘         └──────────────────────────────┘
 ```
 

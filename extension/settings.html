@@ -31,6 +31,14 @@
   label.toggle input { width: 16px; height: 16px; }
   #note { min-height: 20px; margin-top: 10px; }
   a { color: inherit; }
+  .hrow { display: flex; gap: 10px; align-items: baseline; padding: 8px 0;
+    border-top: 1px solid rgba(128,128,128,0.25); }
+  .hrow .hstate { flex: none; width: 14px; text-align: center; }
+  .hrow .hbody { flex: 1; min-width: 0; }
+  .hrow .htitle { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hrow .hmsg { font-size: 12px; color: #888; }
+  .hrow.error .hmsg { color: #d1342f; }
+  .hrow .hwhen { flex: none; font-size: 12px; color: #888; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -75,10 +83,10 @@
   <p class="muted" style="margin:12px 0 0">Visibility</p>
   <label class="toggle"><input type="checkbox" id="btn-preview"> Show <b>Open preview</b></label>
   <label class="toggle"><input type="checkbox" id="btn-kindle"> Show <b>Send to Kindle</b> (direct email delivery)</label>
-  <label class="toggle"><input type="checkbox" id="btn-mail"> Show <b>Send via email</b> (opens Mail.app with the file attached)</label>
-  <p class="muted">“Send via email” renders on the server but opens <b>your</b> Mail.app,
-  via a small local helper. Install it once:
-  <code>extension/native-host/install.sh</code>, then restart the browser.</p>
+
+  <h2>Recent conversions</h2>
+  <div id="history" class="muted">Loading…</div>
+  <button id="clear-history" hidden>Clear history</button>
 
   <div id="note" class="muted"></div>
   <script src="settings.js"></script>
