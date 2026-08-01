@@ -11,14 +11,38 @@ import (
 	"strings"
 )
 
+// publicBaseURL (TOME_BASE_URL) overrides the request-derived value — needed
+// when a proxy rewrites the Host header, since we can't recover the original.
+var publicBaseURL = strings.TrimRight(os.Getenv("TOME_BASE_URL"), "/")
+
 // baseURL reconstructs the URL clients used to reach us, for self-referencing
 // links (install page, invite emails).
+//
+// Behind a TLS-terminating proxy (Cloudflare, nginx, Tailscale Funnel) the
+// connection we see is plain HTTP, so r.TLS is nil even though the user is on
+// HTTPS; X-Forwarded-Proto carries the real scheme. It's client-spoofable when
+// the server is also reachable directly, which here only affects the scheme in
+// displayed links — set TOME_BASE_URL to pin it.
 func baseURL(r *http.Request) string {
+	if publicBaseURL != "" {
+		return publicBaseURL
+	}
 	scheme := "http"
-	if r.TLS != nil {
+	if fwd := firstValue(r.Header.Get("X-Forwarded-Proto")); fwd == "https" || fwd == "http" {
+		scheme = fwd
+	} else if r.TLS != nil {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host
+}
+
+// firstValue takes the leftmost entry of a comma-separated header — chained
+// proxies append, so "https, http" means the client arrived over HTTPS.
+func firstValue(h string) string {
+	if i := strings.Index(h, ","); i >= 0 {
+		h = h[:i]
+	}
+	return strings.ToLower(strings.TrimSpace(h))
 }
 
 // handleExtensionZip serves the browser extension for manual installation.
@@ -91,11 +115,26 @@ func zipDir(dir string) ([]byte, error) {
 func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 	set, _ := s.Store.GetSettings()
 	data := struct {
-		Base   string
-		Sender string
-	}{baseURL(r), set.ResendFrom}
+		Base       string
+		Sender     string
+		SenderHTML template.HTML
+	}{Base: baseURL(r), Sender: set.ResendFrom, SenderHTML: senderHTML(set.ResendFrom)}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = installTmpl.Execute(w, data)
+}
+
+// senderHTML renders the approved-sender address, fenced off from Cloudflare's
+// email obfuscation. Cloudflare otherwise rewrites it to "[email protected]"
+// and restores it with JavaScript — but this is the one address a reader must
+// copy into Amazon by hand, and a silent no-delivery is the cost of getting a
+// scrambled one. The email_off markers must arrive as data: html/template
+// elides comments written in template source.
+func senderHTML(addr string) template.HTML {
+	if addr == "" {
+		return ""
+	}
+	return template.HTML("<!--email_off--><code>" +
+		template.HTMLEscapeString(addr) + "</code><!--/email_off-->")
 }
 
 var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
@@ -118,6 +157,9 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
   @media (prefers-color-scheme: dark) { a.btn { background: #eee; color: #111; } }
   .note { padding: 12px 16px; border-left: 3px solid #888; background: rgba(128,128,128,0.08);
     border-radius: 6px; }
+  .warn { border-left-color: #d08700; background: rgba(208,135,0,0.10); }
+  .lede { color: #555; }
+  @media (prefers-color-scheme: dark) { .lede { color: #aaa; } }
 </style>
 </head>
 <body>
@@ -146,16 +188,38 @@ server.</p>
   <li>Set the server URL to <code>{{.Base}}</code> and press <b>Save</b>.</li>
   <li>Enter your <b>invite code</b>, your email, and your
       <code>@kindle.com</code> address, then press <b>Redeem invite</b>.
-      (Find your Kindle address at amazon.com → Manage Your Content and Devices
-      → Preferences → Personal Document Settings.)</li>
+      Step 3 explains where to find that address.</li>
 </ol>
 
-{{if .Sender}}<div class="note"><b>Required:</b> on that same Amazon
-Personal&nbsp;Document&nbsp;Settings page, add <code>{{.Sender}}</code> to your
-<b>Approved Personal Document E-mail List</b> — otherwise Amazon silently
-rejects the deliveries.</div>{{end}}
+<h2>3 · Set up your Kindle email</h2>
+<p class="lede">Amazon gives every Kindle its own e-mail address, and only
+accepts documents from senders you've approved. Both halves are set on the same
+Amazon page — this is the step people miss, and its failure mode is silence.</p>
 
-<h2>3 · Use it</h2>
+<p><b>Find your Kindle address.</b> Go to
+<a href="https://www.amazon.com/hz/mycd/myx">amazon.com → Manage Your Content
+and Devices</a> → <b>Preferences</b> → <b>Personal Document Settings</b>.
+Under <b>Send-to-Kindle E-Mail Settings</b> each device is listed with an
+address ending in <code>@kindle.com</code>. Copy the one for the device you
+actually read on.</p>
+
+<p><b>Approve the sender.</b> On that same page, under <b>Approved Personal
+Document E-Mail List</b>, click <b>Add a new approved e-mail address</b> and add
+{{if .Sender}}{{.SenderHTML}}{{else}}the address this server sends from
+(ask the person who runs it — the admin hasn't configured email delivery
+yet){{end}}.</p>
+
+<div class="note warn"><b>Don't skip the approval step.</b> If the sender isn't
+on your approved list, Amazon accepts the message and throws it away. Tome
+reports the send as successful, and nothing ever arrives on the device.</div>
+
+<p><b>Tell Tome where to send.</b> Your Kindle address is stored on your account
+here, not on your device. You set it when you redeem your invite, and you can
+change it any time in the extension's <b>⚙ settings → Account → Kindle
+address</b> — type the new one and press <b>Save</b>. Do this whenever you
+switch Kindles, since the address is per-device.</p>
+
+<h2>4 · Use it</h2>
 <p>Open an article on X, scroll it once so images load, click the Tome button →
 <b>Send to Kindle</b>. That's it — it lands on your Kindle in a minute or two.
 <b>Open preview</b> gives you a print-ready view (<kbd>⌘P</kbd> → Save as PDF)
