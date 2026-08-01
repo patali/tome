@@ -161,6 +161,13 @@ hr { border: none; border-top: 0.5pt solid var(--rule); margin: 0.9em 0; }
   margin-top: 0.25em;
 }
 
+/* --- Colour mode --------------------------------------------------------- */
+/* Grayscale is the default: e-ink can't show colour, and flattening it here
+   keeps contrast predictable. data-color="color" opts back in — worth having
+   for a colour Kindle, or for a PDF that will be read on a screen. */
+html[data-color="color"] .article-body img,
+html[data-color="color"] .article-body figure img { filter: none; }
+
 /* --- Device overrides ---------------------------------------------------- */
 html[data-device="paperwhite"] { --body-size: 9.5pt; --col-max: 66ch; }
 
@@ -191,6 +198,20 @@ html[data-device="paperwhite"] { --body-size: 9.5pt; --col-max: 66ch; }
   }
   #tome-toolbar button[aria-pressed="true"] { background: #111; color: #fff; border-color: #111; }
   #tome-toolbar .tome-print { border-color: #111; background: #111; color: #fff; }
+  #tome-toolbar .tome-send { border-color: #111; background: #111; color: #fff; }
+  #tome-toolbar button:disabled { opacity: 0.5; cursor: default; }
+  #tome-toolbar .tome-label { color: #666; }
+  #tome-toolbar .tome-sep { width: 1px; align-self: stretch; background: #ddd; margin: 0 2px; }
+
+  /* Sits under the toolbar, top-right, so it doesn't shift the page. */
+  #tome-send-status {
+    position: fixed; top: 56px; right: 12px; z-index: 9999; max-width: 320px;
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px;
+    background: #fff; border: 1px solid #bbb; border-radius: 8px;
+    padding: 8px 10px; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+  }
+  #tome-send-status.ok { border-color: #1a9e4b; color: #127035; }
+  #tome-send-status.err { border-color: #d1342f; color: #a5231f; }
 
   #tome-status {
     font-family: ui-sans-serif, system-ui, sans-serif; color: #444;
@@ -200,5 +221,5 @@ html[data-device="paperwhite"] { --body-size: 9.5pt; --col-max: 66ch; }
   #tome-status:empty { display: none; }
 }
 @media print {
-  #tome-toolbar, #tome-status { display: none !important; }
+  #tome-toolbar, #tome-status, #tome-send-status { display: none !important; }
 }

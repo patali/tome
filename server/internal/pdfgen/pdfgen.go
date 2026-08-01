@@ -107,7 +107,24 @@ func buildHTML(a article.Article) string {
 		"{{CSS}}", css,
 		"{{TITLE}}", html.EscapeString(title),
 		"{{BODY}}", body,
+		"{{ROOTATTRS}}", rootAttrs(a),
 	).Replace(htmlTemplate)
+}
+
+// rootAttrs mirrors onto <html> the dataset attributes the reader page sets,
+// because reader.css keys its device and color rules off them. Without this
+// the shipped stylesheet's html[data-*] blocks never match and the PDF quietly
+// ignores both choices.
+func rootAttrs(a article.Article) string {
+	device := a.Device
+	if devices[device].size == "" {
+		device = "scribe"
+	}
+	color := "bw"
+	if a.Color == "color" {
+		color = "color"
+	}
+	return fmt.Sprintf(` data-device=%q data-color=%q`, device, color)
 }
 
 // Build renders the article to PDF bytes via headless Chrome.
@@ -193,7 +210,7 @@ func Build(a article.Article) (data []byte, filename string, err error) {
 // htmlTemplate wraps the article markup; {{CSS}} is the reader stylesheet
 // shipped in the payload (or fallbackCSS below).
 const htmlTemplate = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en"{{ROOTATTRS}}>
 <head>
 <meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
