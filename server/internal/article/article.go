@@ -31,7 +31,7 @@ func (a Article) BaseName() string {
 	name := unsafeRe.ReplaceAllString(a.Title, "")
 	name = strings.TrimSpace(wsRe.ReplaceAllString(name, " "))
 	if name == "" {
-		name = "X Article"
+		name = "Article"
 	}
 	if r := []rune(name); len(r) > 120 { // keep it a sane length (rune-safe)
 		name = strings.TrimSpace(string(r[:120]))

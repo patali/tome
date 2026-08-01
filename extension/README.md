@@ -28,7 +28,7 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 
 ## Use
 
-1. Open an X article and **scroll through it once** so images and text load.
+1. Open an article and **scroll through it once** so images and text load.
 2. Click the **Tome** toolbar button — the popup shows up to two actions
    (each can be hidden from the settings page, gear icon **⚙**):
    - **Open preview** → clean reader tab. Its toolbar picks the device, flips
@@ -98,7 +98,7 @@ and hitting reload on the extension card. Sign-in survives.
 | `popup.html` / `popup.js` | Toolbar popup: the action buttons (Open preview / Send to Kindle — each toggleable), live status, and the queue of running/just-finished jobs. Starts jobs; never waits on them. |
 | `settings.html` / `settings.js` | The settings page (gear icon): server URL, account (invite redemption / API key / sign-out), popup-button toggles, and the **Recent conversions** history. |
 | `background.js` | Service worker. Injects the extractor modules into the page, dispatches to the highest-priority one that matches, then opens the reader or POSTs to the local server. Owns the job records in `chrome.storage.local` that outlive the popup. |
-| `extractors/x.js` | **X (Twitter) article extractor** — reads X's stable `data-testid` landmarks directly (title, byline, date, cover image, sanitized body). |
+| `extractors/x.js` | Source-specific extractor for X, where the generic pass falls short — reads stable `data-testid` landmarks directly (title, byline, date, cover image, sanitized body). |
 | `extractors/generic.js` | Readability fallback for every other page (blogs, news, ...). |
 | `reader.html` | The e-ink reader page. No inline scripts (MV3 CSP). |
 | `reader.css` | **The single source of truth for e-ink typography.** Used by the reader page and shipped in the Send-to-Kindle payload so the server's PDF renders identically. Tune type here and only here. |

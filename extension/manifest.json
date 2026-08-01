@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tome",
   "version": "0.3.0",
-  "description": "Turn the article you're reading into a clean, e-ink-optimized document and send it to your Kindle. X (Twitter) articles today; more sources coming.",
+  "description": "Turn the article you're reading into a clean, e-ink-optimized document and send it to your Kindle.",
   "permissions": [
     "scripting",
     "storage",
@@ -30,7 +30,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Convert this X article for Kindle",
+    "default_title": "Convert this article for Kindle",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
