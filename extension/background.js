@@ -8,6 +8,11 @@
  *   - "kindle": POSTs the article to the local Go server, which renders a
  *               PDF/EPUB and delivers it via Send-to-Kindle.
  *
+ * Work is tracked as jobs in storage rather than returned through the message
+ * channel. A popup closes the moment the user clicks the page behind it, which
+ * kills that channel mid-conversion; the job record is what survives, so the
+ * popup can show progress again on reopen.
+ *
  * Extraction is pluggable: each file in extractors/ registers itself into
  * self.__TOME_EXTRACTORS (keyed by name, so re-injection is idempotent). To
  * support a new source (Medium, Substack, ...), add extractors/<source>.js
@@ -129,67 +134,6 @@ async function deliver(article, path) {
   return data; // { ok, method, sentTo, filename, bytes }
 }
 
-const MAIL_HELPER = "com.tome.mailer";
-const HELPER_HINT = "Mail helper not installed — run extension/native-host/install.sh, then restart the browser.";
-
-// mailHelperPing reports whether the local native-messaging helper responds.
-async function mailHelperPing() {
-  try {
-    const reply = await chrome.runtime.sendNativeMessage(MAIL_HELPER, { ping: true });
-    return !!(reply && reply.ok);
-  } catch (e) {
-    return false;
-  }
-}
-
-// sendViaMail: the SERVER renders the PDF, then the LOCAL mail helper opens
-// Mail.app with it attached — works no matter where the server runs.
-async function sendViaMail(article) {
-  article.css = await readerCSS();
-  const url = await serverUrl();
-  const headers = await authHeaders();
-
-  const meResp = await fetch(url + "/me", { headers });
-  if (meResp.status === 401) throw new Error("Not signed in — open Tome settings (⚙).");
-  if (!meResp.ok) throw new Error("server returned " + meResp.status);
-  const me = await meResp.json();
-
-  const resp = await fetch(url + "/convert", {
-    method: "POST",
-    headers: Object.assign({ "Content-Type": "application/json" }, headers),
-    body: JSON.stringify(article)
-  });
-  if (!resp.ok) {
-    const data = await resp.json().catch(() => ({}));
-    throw new Error(data.error || ("server returned " + resp.status));
-  }
-  const cd = resp.headers.get("Content-Disposition") || "";
-  const m = /filename="([^"]+)"/.exec(cd);
-  const filename = m ? m[1] : "article.pdf";
-  const data = b64FromBuffer(await resp.arrayBuffer());
-
-  let reply;
-  try {
-    reply = await chrome.runtime.sendNativeMessage(MAIL_HELPER, {
-      to: me.kindleEmail, subject: article.title || filename, filename, data
-    });
-  } catch (e) {
-    throw new Error(HELPER_HINT);
-  }
-  if (!reply || !reply.ok) throw new Error((reply && reply.error) || "mail helper failed");
-  return { sentTo: me.kindleEmail };
-}
-
-function b64FromBuffer(buf) {
-  const u8 = new Uint8Array(buf);
-  const CHUNK = 0x8000; // avoid call-stack limits on large PDFs
-  let s = "";
-  for (let i = 0; i < u8.length; i += CHUNK) {
-    s += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK));
-  }
-  return btoa(s);
-}
-
 // Two-step status: is the server up, and does our stored key identify us?
 async function serverStatus() {
   const url = await serverUrl();
@@ -202,7 +146,6 @@ async function serverStatus() {
     return { up: false, url };
   }
   const out = { up: true, url, authRequired: !!status.authRequired, signedIn: false, badKey: false };
-  out.mailHelper = await mailHelperPing();
   if (!(await apiKey())) return out;
   try {
     const resp = await fetch(url + "/me", { headers: await authHeaders() });
@@ -252,6 +195,117 @@ async function setApiKey(key) {
   return { ok: true, email: me.email };
 }
 
+/* --- Job queue ---------------------------------------------------------
+ *
+ * Jobs live in storage.local so they outlive both the popup and this service
+ * worker. The popup renders from here; nothing it needs arrives by message
+ * response, because that response is lost if the popup closes first.
+ *
+ * "seen" drives the popup only: a finished job is shown until the popup has
+ * displayed it once, then drops out. Settings keeps the full list as history.
+ */
+
+const JOBS_KEY = "jobs";
+const MAX_JOBS = 50;
+
+// All mutations go through one promise chain. Read-modify-write on a single
+// storage key would otherwise interleave between concurrent jobs and lose an
+// update — two conversions running at once is the normal case here.
+let jobsChain = Promise.resolve();
+
+function withJobs(fn) {
+  const next = jobsChain.then(async () => {
+    const { [JOBS_KEY]: stored } = await chrome.storage.local.get({ [JOBS_KEY]: [] });
+    const jobs = Array.isArray(stored) ? stored : [];
+    const result = await fn(jobs);
+    await chrome.storage.local.set({ [JOBS_KEY]: jobs.slice(0, MAX_JOBS) });
+    return result;
+  });
+  jobsChain = next.then(() => {}, () => {});
+  return next;
+}
+
+function newJobId() {
+  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+const MODE_LABEL = { reader: "Preview", kindle: "Send to Kindle" };
+
+async function addJob(mode, tab) {
+  const job = {
+    id: newJobId(),
+    mode,
+    label: MODE_LABEL[mode] || mode,
+    title: (tab && tab.title) || "This page",
+    url: (tab && tab.url) || "",
+    state: "running",
+    message: mode === "reader" ? "Extracting…" : "Converting…",
+    startedAt: Date.now(),
+    endedAt: 0,
+    seen: false
+  };
+  await withJobs((jobs) => { jobs.unshift(job); });
+  return job;
+}
+
+async function patchJob(id, patch) {
+  await withJobs((jobs) => {
+    const job = jobs.find((j) => j.id === id);
+    if (job) Object.assign(job, patch);
+  });
+}
+
+// A service worker restart proves nothing is still driving those fetches, so
+// anything left "running" in storage died with the previous worker. Without
+// this they'd spin in the popup forever.
+async function reconcileStaleJobs() {
+  await withJobs((jobs) => {
+    jobs.forEach((j) => {
+      if (j.state !== "running") return;
+      j.state = "error";
+      j.message = "Interrupted — the browser stopped the extension mid-run. Try again.";
+      j.endedAt = Date.now();
+      j.seen = false;
+    });
+  });
+}
+reconcileStaleJobs();
+
+// runJob owns the whole conversion. It deliberately returns nothing to the
+// caller: progress and outcome are written to the job record instead.
+async function runJob(job) {
+  try {
+    const article = await extractFromTab(await activeTab());
+    if (article.error) throw new Error(article.error);
+    console.log("[tome] extracted via:", article.extractor, "->", article.title);
+    if (article.title) await patchJob(job.id, { title: article.title });
+
+    if (job.mode === "reader") {
+      await openReader(article);
+      await patchJob(job.id, {
+        state: "done", message: "Preview opened.", endedAt: Date.now()
+      });
+      return;
+    }
+    if (job.mode === "kindle") {
+      await patchJob(job.id, { message: "Rendering and sending…" });
+      const result = await deliver(article, "/send-to-kindle");
+      await patchJob(job.id, {
+        state: "done",
+        message: "Sent to " + (result.sentTo || "your Kindle"),
+        sentTo: result.sentTo || "",
+        endedAt: Date.now()
+      });
+      return;
+    }
+    throw new Error("Unknown mode: " + job.mode);
+  } catch (e) {
+    await patchJob(job.id, {
+      state: "error", message: String((e && e.message) || e), endedAt: Date.now()
+    });
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
@@ -277,22 +331,29 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return;
       }
       if (msg.type === "convert") {
-        const article = await extractFromTab(await activeTab());
-        if (article.error) { sendResponse({ error: article.error }); return; }
-        console.log("[tome] extracted via:", article.extractor, "->", article.title);
-
-        if (msg.mode === "reader") {
-          await openReader(article);
-          sendResponse({ ok: true, mode: "reader" });
-        } else if (msg.mode === "kindle") {
-          const result = await deliver(article, "/send-to-kindle");
-          sendResponse({ ok: true, mode: "kindle", sentTo: result.sentTo });
-        } else if (msg.mode === "mail") {
-          const result = await sendViaMail(article);
-          sendResponse({ ok: true, mode: "mail", sentTo: result.sentTo });
-        } else {
-          sendResponse({ error: "Unknown mode: " + msg.mode });
-        }
+        const job = await addJob(msg.mode, await activeTab());
+        // Not awaited: the popup gets the job id now and follows the rest in
+        // storage, so closing it can't strand the conversion.
+        runJob(job);
+        sendResponse({ ok: true, id: job.id });
+        return;
+      }
+      if (msg.type === "getJobs") {
+        const { jobs } = await chrome.storage.local.get({ [JOBS_KEY]: [] });
+        sendResponse({ jobs: Array.isArray(jobs) ? jobs : [] });
+        return;
+      }
+      if (msg.type === "markSeen") {
+        const ids = new Set(msg.ids || []);
+        await withJobs((jobs) => {
+          jobs.forEach((j) => { if (ids.has(j.id)) j.seen = true; });
+        });
+        sendResponse({ ok: true });
+        return;
+      }
+      if (msg.type === "clearJobs") {
+        await withJobs((jobs) => { jobs.length = 0; });
+        sendResponse({ ok: true });
         return;
       }
       sendResponse({ error: "Unknown message type." });

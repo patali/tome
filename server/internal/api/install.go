@@ -225,12 +225,6 @@ switch Kindles, since the address is per-device.</p>
 <b>Open preview</b> gives you a print-ready view (<kbd>⌘P</kbd> → Save as PDF)
 if you'd rather keep the file.</p>
 
-<h2>Optional: “Send via email” (macOS)</h2>
-<p>If you prefer reviewing in Mail.app before sending: in the unzipped folder,
-run <code>native-host/install.sh</code> in Terminal, restart the browser, and
-enable the button in Tome's settings. It opens a Mail compose window with the
-document attached.</p>
-
 <h2>Updating</h2>
 <p>To update, download the zip again, replace the folder's contents, and press
 the ↻ reload icon on the Tome card in <code>chrome://extensions</code>. Your

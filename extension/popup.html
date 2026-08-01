@@ -33,6 +33,22 @@
   .err { color: #d1342f; } .ok { color: #1a9e4b; }
   #setup-hint { margin: 2px 0 10px; }
   #setup-hint a { color: inherit; }
+  #queue { margin-top: 10px; }
+  #queue:empty { margin-top: 0; }
+  .job { display: flex; gap: 7px; align-items: flex-start; padding: 7px 0;
+    border-top: 1px solid rgba(128,128,128,0.25); font-size: 12px; }
+  .job .jico { flex: none; line-height: 1.35; }
+  .job .jbody { min-width: 0; }
+  .job .jtitle { display: block; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; font-weight: 600; }
+  .job .jmsg { display: block; color: #888; }
+  .job.error .jmsg { color: #d1342f; white-space: normal; }
+  .job.done .jmsg { color: #1a9e4b; }
+  /* The running marker pulses so a stalled job is distinguishable from a
+     finished one at a glance. */
+  .job.running .jico { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) { .job.running .jico { animation: none; } }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -46,10 +62,9 @@
       <span class="ico">📖</span><span class="label">Open preview</span></button>
     <button id="kindle" class="action" title="Send to Kindle">
       <span class="ico">📤</span><span class="label">Send to Kindle</span></button>
-    <button id="mail" class="action" title="Send via email">
-      <span class="ico">✉️</span><span class="label">Send via email</span></button>
   </div>
   <div id="server"><span class="dot" id="dot"></span><span id="server-text" class="muted">checking server…</span></div>
+  <div id="queue"></div>
   <div id="status"></div>
   <script src="popup.js"></script>
 </body>
