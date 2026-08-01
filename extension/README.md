@@ -29,15 +29,18 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 ## Use
 
 1. Open an X article and **scroll through it once** so images and text load.
-2. Click the **Tome** toolbar button — the popup shows up to three actions
+2. Click the **Tome** toolbar button — the popup shows up to two actions
    (each can be hidden from the settings page, gear icon **⚙**):
    - **Open preview** → clean reader tab; pick your device in the top-right
      toolbar, then `Cmd+P` → **Save as PDF**. Works without the server.
    - **Send to Kindle** → the server renders a PDF and Resend emails it
      straight to your Kindle address.
-   - **Send via email** → the server renders the PDF and a small local helper
-     opens **your Mail.app** with it attached for review. One-time setup:
-     `extension/native-host/install.sh`, then restart the browser (macOS only).
+
+Conversions run in the background service worker, not in the popup. Clicking
+the page dismisses the popup — that's unavoidable for a browser popup — but the
+job keeps going, and reopening shows where it got to. Each finished job is
+shown once and then clears; the full list stays under **Recent conversions**
+on the settings page.
 
 > In the print dialog: **Margins: Default** and enable **Background graphics**
 > so code-block shading prints.
@@ -66,16 +69,15 @@ trigger a one-time browser permission prompt (`optional_host_permissions`).
 | File | Role |
 |---|---|
 | `manifest.json` | MV3 manifest. Permissions: `activeTab`, `scripting`, `storage` (page access only for the tab whose button you click); `host_permissions` for `http://localhost/*` (patterns match every port) so the popup can reach the local server. |
-| `popup.html` / `popup.js` | Toolbar popup: the action buttons (Open preview / Send to Kindle / Send via email — each toggleable) + live status. |
-| `settings.html` / `settings.js` | The settings page (gear icon): server URL, account (invite redemption / API key / sign-out), popup-button toggles. |
-| `background.js` | Service worker. Injects the extractor modules into the page, dispatches to the highest-priority one that matches, then opens the reader or POSTs to the local server. |
+| `popup.html` / `popup.js` | Toolbar popup: the action buttons (Open preview / Send to Kindle — each toggleable), live status, and the queue of running/just-finished jobs. Starts jobs; never waits on them. |
+| `settings.html` / `settings.js` | The settings page (gear icon): server URL, account (invite redemption / API key / sign-out), popup-button toggles, and the **Recent conversions** history. |
+| `background.js` | Service worker. Injects the extractor modules into the page, dispatches to the highest-priority one that matches, then opens the reader or POSTs to the local server. Owns the job records in `chrome.storage.local` that outlive the popup. |
 | `extractors/x.js` | **X (Twitter) article extractor** — reads X's stable `data-testid` landmarks directly (title, byline, date, cover image, sanitized body). |
 | `extractors/generic.js` | Readability fallback for every other page (blogs, news, ...). |
 | `reader.html` | The e-ink reader page. No inline scripts (MV3 CSP). |
 | `reader.css` | **The single source of truth for e-ink typography.** Used by the reader page and shipped in the Send-to-Kindle payload so the server's PDF renders identically. Tune type here and only here. |
 | `reader.js` | Fills the page from the stashed article; device + print toolbar. |
 | `lib/Readability.js` | Mozilla Readability v0.5.0, vendored unmodified. |
-| `native-host/` | The **mail helper** (macOS): a native-messaging host that saves the rendered PDF and opens Mail.app with it attached. `install.sh` registers it for Chrome/Arc/Chromium/Brave/Edge; it derives the unpacked-extension ID from this repo's path (pass the ID as an argument if yours differs). |
 | `icons/` | Tome icon (16/48/128 px, transparent background) — toolbar button, popup header, reader favicon. Source art in `docs/assets/tome-icon.png`. |
 
 ## Adding a new source (Medium, Substack, ...)

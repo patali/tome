@@ -36,11 +36,8 @@ function refreshStatus() {
     }
     dotEl.className = "dot up";
     serverText.textContent = "connected as " + s.email;
-    var caps = [];
-    if (s.resendConfigured) caps.push("direct delivery");
-    if (s.mailHelper) caps.push("Mail.app helper");
     document.getElementById("acct-info").textContent =
-      s.email + (caps.length ? "  ·  " + caps.join(" + ") : "  ·  no delivery configured");
+      s.email + (s.resendConfigured ? "  ·  direct delivery" : "  ·  no delivery configured");
     var kindleInput = document.getElementById("kindle-edit");
     if (document.activeElement !== kindleInput) kindleInput.value = s.kindleEmail || "";
   });
@@ -137,8 +134,8 @@ chrome.storage.sync.get({ buttonStyle: "text" }, function (v) {
   });
 });
 
-var TOGGLES = { preview: "btn-preview", kindle: "btn-kindle", mail: "btn-mail" };
-var DEFAULT_BUTTONS = { preview: true, kindle: true, mail: true };
+var TOGGLES = { preview: "btn-preview", kindle: "btn-kindle" };
+var DEFAULT_BUTTONS = { preview: true, kindle: true };
 
 chrome.storage.sync.get({ buttons: DEFAULT_BUTTONS }, function (v) {
   Object.keys(TOGGLES).forEach(function (k) {
@@ -153,4 +150,79 @@ chrome.storage.sync.get({ buttons: DEFAULT_BUTTONS }, function (v) {
       });
     });
   });
+});
+
+/* --- Recent conversions ------------------------------------------------- */
+
+/* The popup drops a job once it has shown the outcome once, so this is the
+   only place a past conversion can be looked up again. */
+
+var historyEl = document.getElementById("history");
+var clearBtn = document.getElementById("clear-history");
+var STATE_ICON = { running: "⏳", done: "✓", error: "✕" };
+
+function relTime(ms) {
+  if (!ms) return "";
+  var secs = Math.round((Date.now() - ms) / 1000);
+  if (secs < 60) return "just now";
+  var mins = Math.round(secs / 60);
+  if (mins < 60) return mins + "m ago";
+  var hrs = Math.round(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  return Math.round(hrs / 24) + "d ago";
+}
+
+function renderHistory(jobs) {
+  historyEl.textContent = "";
+  clearBtn.hidden = !jobs.length;
+  if (!jobs.length) {
+    historyEl.className = "muted";
+    historyEl.textContent = "Nothing converted yet.";
+    return;
+  }
+  historyEl.className = "";
+  jobs.forEach(function (j) {
+    var row = document.createElement("div");
+    row.className = "hrow " + j.state;
+
+    var state = document.createElement("span");
+    state.className = "hstate";
+    state.textContent = STATE_ICON[j.state] || "•";
+    state.title = j.state;
+
+    var body = document.createElement("div");
+    body.className = "hbody";
+    var title = document.createElement(j.url ? "a" : "span");
+    title.className = "htitle";
+    title.textContent = j.title || "This page";
+    if (j.url) { title.href = j.url; title.target = "_blank"; title.rel = "noreferrer"; }
+    var msg = document.createElement("span");
+    msg.className = "hmsg";
+    msg.textContent = j.label ? j.label + " · " + (j.message || "") : (j.message || "");
+    body.appendChild(title);
+    body.appendChild(msg);
+
+    var when = document.createElement("span");
+    when.className = "hwhen";
+    when.textContent = relTime(j.endedAt || j.startedAt);
+
+    row.appendChild(state);
+    row.appendChild(body);
+    row.appendChild(when);
+    historyEl.appendChild(row);
+  });
+}
+
+function refreshHistory() {
+  send({ type: "getJobs" }).then(function (r) { renderHistory(r.jobs || []); });
+}
+refreshHistory();
+
+chrome.storage.onChanged.addListener(function (changes, area) {
+  if (area === "local" && changes.jobs) renderHistory(changes.jobs.newValue || []);
+});
+
+clearBtn.addEventListener("click", async function () {
+  await send({ type: "clearJobs" });
+  note("History cleared.", "ok");
 });
