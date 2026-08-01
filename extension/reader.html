@@ -20,18 +20,45 @@
 </head>
 <body>
 
-<nav id="tome-toolbar" aria-label="Preview controls">
-  <span class="tome-label">Device:</span>
-  <button data-device="scribe" aria-pressed="true">Scribe 10.2"</button>
-  <button data-device="scribe3" aria-pressed="false">Scribe 11"</button>
-  <button data-device="paperwhite" aria-pressed="false">Paperwhite</button>
-  <span class="tome-sep" role="separator"></span>
-  <span class="tome-label">Images:</span>
-  <button data-color="bw" aria-pressed="true">B&amp;W</button>
-  <button data-color="color" aria-pressed="false">Colour</button>
-  <span class="tome-sep" role="separator"></span>
-  <button class="tome-print" id="tome-print">Save as PDF</button>
-  <button class="tome-send" id="tome-send">Send to Kindle</button>
+<nav id="tome-toolbar" aria-label="Preview controls" data-collapsed="false">
+  <button id="tome-toggle" aria-expanded="true" aria-controls="tome-panel"
+          title="Hide controls">›</button>
+  <div id="tome-panel">
+    <div class="tome-group">
+      <span class="tome-label">Device</span>
+      <div class="tome-row">
+        <button data-device="scribe" aria-pressed="true">Scribe 10.2"</button>
+        <button data-device="scribe3" aria-pressed="false">Scribe 11"</button>
+        <button data-device="paperwhite" aria-pressed="false">Paperwhite</button>
+      </div>
+    </div>
+    <div class="tome-group">
+      <span class="tome-label">Images</span>
+      <div class="tome-row">
+        <button data-color="bw" aria-pressed="true">B&amp;W</button>
+        <button data-color="color" aria-pressed="false">Colour</button>
+      </div>
+    </div>
+    <div class="tome-group">
+      <span class="tome-label">Reading font</span>
+      <button data-font="literata" aria-pressed="true"
+              style="font-family:'Literata',Georgia,serif">Literata</button>
+      <button data-font="sourceserif" aria-pressed="false"
+              style="font-family:'Source Serif 4',Georgia,serif">Source Serif 4</button>
+      <button data-font="merriweather" aria-pressed="false"
+              style="font-family:'Merriweather',Georgia,serif">Merriweather</button>
+      <button data-font="baskerville" aria-pressed="false"
+              style="font-family:'Libre Baskerville',Georgia,serif">Libre Baskerville</button>
+      <button data-font="inter" aria-pressed="false"
+              style="font-family:'Inter',ui-sans-serif,sans-serif">Inter</button>
+      <button data-font="atkinson" aria-pressed="false"
+              style="font-family:'Atkinson Hyperlegible',ui-sans-serif,sans-serif">Atkinson Hyperlegible</button>
+    </div>
+    <div class="tome-group">
+      <button class="tome-print" id="tome-print">Save as PDF</button>
+      <button class="tome-send" id="tome-send">Send to Kindle</button>
+    </div>
+  </div>
 </nav>
 <div id="tome-send-status" role="status" aria-live="polite" hidden></div>
 

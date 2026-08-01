@@ -67,11 +67,13 @@ endpoint docs, and container caveats in [`server/README.md`](server/README.md).
 
 - **Device-accurate pages** — Kindle Scribe 157×210 mm, Paperwhite 105×140 mm;
   the PDF renders 1:1 on the device, no magnification.
-- **Dense e-ink typography** — Literata 9.5 pt, ~360 words/page on Scribe;
-  tables, code blocks, and links (underline style) all preserved.
+- **Dense e-ink typography** — Literata 9.5 pt by default, ~360 words/page on
+  Scribe; tables, code blocks, and links (underline style) all preserved.
+- **Six body faces to choose from** — Literata, Source Serif 4, Merriweather,
+  Libre Baskerville, Inter, Atkinson Hyperlegible; all picked for e-ink and all
+  bundled, so the preview and the PDF agree.
 - **Pluggable extractors** — Readability.js handles pages generally, and a
   source can add its own extractor when the generic pass falls short (X ships
   one, reading its `data-testid` landmarks for title, byline, date and body).
-- **Bundled fonts, no third-party calls** — the reader and the PDF renderer
-  ship Literata and JetBrains Mono locally, so previewing works offline and
-  nothing tells an outside service what you're reading.
+- **No third-party calls** — every face ships in the package, so previewing
+  works offline and nothing tells an outside service what you're reading.

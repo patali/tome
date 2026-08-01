@@ -119,11 +119,14 @@ Auth is `Authorization: Bearer tome_…`. Errors are always `{ "error": "…" }`
 | `GET` / `PUT` | `/me` | user | own profile / update own `kindleEmail` |
 | * | `/admin/invites[…]`, `/admin/users[…]`, `/admin/settings` | admin | see CLI above; the Resend API key is write-only (never echoed) |
 
-Article JSON: `{ title, byline, publishedTime, content (HTML), url, device?, format?, color?, css? }`.
+Article JSON: `{ title, byline, publishedTime, content (HTML), url, device?, format?, color?, font?, css? }`.
 - `device`: `scribe` (default) · `scribe3` · `paperwhite` — sets the PDF page size.
+- `font`: body face — `literata` (default) · `sourceserif` · `merriweather` ·
+  `baskerville` · `inter` · `atkinson`. All are bundled and inlined into the
+  render; an unknown value falls back to the default.
 - `color`: `bw` (default) · `color` — grayscales images or leaves them alone.
-  Both are applied as `data-device` / `data-color` on `<html>`, which is what
-  the shipped stylesheet keys its rules off.
+  These are applied as `data-device` / `data-color` / `data-font` on `<html>`,
+  which is what the shipped stylesheet keys its rules off.
 - `css`: the reader stylesheet; the extension ships `extension/reader.css` (the
   single source of truth) in every request. The server's embedded fallback is a
   compact approximation — don't tune typography there.

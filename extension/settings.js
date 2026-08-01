@@ -152,6 +152,73 @@ chrome.storage.sync.get({ buttons: DEFAULT_BUTTONS }, function (v) {
   });
 });
 
+/* --- Reading font -------------------------------------------------------- */
+
+/* Every option is a bundled face, so the sample renders in the real typeface
+   rather than describing it. The chosen key travels with each conversion, and
+   the server mirrors it onto <html data-font>, so the PDF matches the preview. */
+
+var FONTS = [
+  { key: "literata", name: "Literata", stack: "'Literata', Georgia, serif",
+    why: "Default. Built for e-readers — even colour, generous spacing." },
+  { key: "sourceserif", name: "Source Serif 4", stack: "'Source Serif 4', Georgia, serif",
+    why: "Narrower than Literata, so more words per page." },
+  { key: "merriweather", name: "Merriweather", stack: "'Merriweather', Georgia, serif",
+    why: "Big x-height, sturdy strokes — the most forgiving on low-contrast e-ink." },
+  { key: "baskerville", name: "Libre Baskerville", stack: "'Libre Baskerville', Georgia, serif",
+    why: "Traditional book feel; wider, so fewer words per page." },
+  { key: "inter", name: "Inter", stack: "'Inter', ui-sans-serif, system-ui, sans-serif",
+    why: "Sans. Neutral and even, if you'd rather not read a serif." },
+  { key: "atkinson", name: "Atkinson Hyperlegible", stack: "'Atkinson Hyperlegible', ui-sans-serif, sans-serif",
+    why: "Sans, drawn by the Braille Institute to make similar letters distinct." }
+];
+var DEFAULT_FONT = "literata";
+var SAMPLE = "The quick brown fox jumps over the lazy dog.";
+
+function renderFontChoices(selected) {
+  var host = document.getElementById("font-choices");
+  host.textContent = "";
+  FONTS.forEach(function (f) {
+    var label = document.createElement("label");
+    label.className = "font";
+
+    var radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "reading-font";
+    radio.value = f.key;
+    radio.checked = f.key === selected;
+    radio.addEventListener("change", function () {
+      if (!radio.checked) return;
+      chrome.storage.sync.set({ readingFont: f.key }, function () {
+        note("Reading font set to " + f.name + ".", "ok");
+      });
+    });
+
+    var body = document.createElement("div");
+    var name = document.createElement("span");
+    name.className = "fname";
+    name.textContent = f.name;
+    var why = document.createElement("div");
+    why.className = "fwhy";
+    why.textContent = f.why;
+    var sample = document.createElement("span");
+    sample.className = "fsample";
+    sample.style.fontFamily = f.stack;
+    sample.textContent = SAMPLE;
+
+    body.appendChild(name);
+    body.appendChild(why);
+    body.appendChild(sample);
+    label.appendChild(radio);
+    label.appendChild(body);
+    host.appendChild(label);
+  });
+}
+
+chrome.storage.sync.get({ readingFont: DEFAULT_FONT }, function (v) {
+  renderFontChoices(v.readingFont || DEFAULT_FONT);
+});
+
 /* --- Version ------------------------------------------------------------ */
 
 /* Unpacked installs never auto-update, so the only honest thing to do is show
