@@ -248,7 +248,7 @@ var landingTmpl = template.Must(template.New("landing").Parse(`<!DOCTYPE html>
     <a href="https://github.com/patali/tome">Source</a>
     <a href="{{.Base}}/privacy">Privacy</a>
     <a href="{{.Base}}/install">Install guide</a>
-    <span>Self-hostable</span>
+    <span>Self-hostable · MIT</span>
   </footer>
 
 </div>
