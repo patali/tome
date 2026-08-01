@@ -41,6 +41,8 @@ func New(st *store.Store, resendBase string) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", s.handleStatus)
+	// {$} matches only "/" — unknown paths still 404 rather than land here.
+	mux.HandleFunc("GET /{$}", s.handleInstallPage)
 	mux.HandleFunc("GET /install", s.handleInstallPage)
 	mux.HandleFunc("GET /extension.zip", s.handleExtensionZip)
 	mux.Handle("POST /auth/accept-invite", s.limiter.Wrap(http.HandlerFunc(s.handleAcceptInvite)))
