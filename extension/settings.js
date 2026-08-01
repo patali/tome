@@ -152,6 +152,42 @@ chrome.storage.sync.get({ buttons: DEFAULT_BUTTONS }, function (v) {
   });
 });
 
+/* --- Version ------------------------------------------------------------ */
+
+/* Unpacked installs never auto-update, so the only honest thing to do is show
+   both numbers and point at the instructions. */
+
+var versionLine = document.getElementById("version-line");
+var updateGuide = document.getElementById("update-guide");
+
+function renderVersion(st) {
+  updateGuide.hidden = !st.updateAvailable;
+  if (st.updateAvailable) {
+    versionLine.className = "";
+    versionLine.textContent =
+      "Installed " + st.installed + " · version " + st.latestVersion + " is available from your server.";
+    return;
+  }
+  versionLine.className = "muted";
+  versionLine.textContent = "Installed " + st.installed +
+    (st.latestVersion ? " · up to date with your server" : " · server hasn't reported a version");
+}
+
+send({ type: "updateState" }).then(renderVersion);
+
+document.getElementById("check-update").addEventListener("click", async function () {
+  versionLine.textContent = "Checking…";
+  versionLine.className = "muted";
+  renderVersion(await send({ type: "checkUpdate" }));
+});
+
+updateGuide.addEventListener("click", function (e) {
+  e.preventDefault();
+  chrome.storage.sync.get({ serverUrl: "" }, function (v) {
+    if (v.serverUrl) window.open(v.serverUrl + "/install", "_blank");
+  });
+});
+
 /* --- Recent conversions ------------------------------------------------- */
 
 /* The popup drops a job once it has shown the outcome once, so this is the

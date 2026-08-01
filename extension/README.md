@@ -31,10 +31,16 @@ on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 1. Open an X article and **scroll through it once** so images and text load.
 2. Click the **Tome** toolbar button — the popup shows up to two actions
    (each can be hidden from the settings page, gear icon **⚙**):
-   - **Open preview** → clean reader tab; pick your device in the top-right
-     toolbar, then `Cmd+P` → **Save as PDF**. Works without the server.
+   - **Open preview** → clean reader tab. Its toolbar picks the device, flips
+     images between **B&W** and **Colour**, and offers `Cmd+P` →
+     **Save as PDF** or **Send to Kindle** — the send uses the same job queue
+     as the popup, and carries whichever device and colour you chose.
    - **Send to Kindle** → the server renders a PDF and Resend emails it
      straight to your Kindle address.
+
+Images are grayscaled by default because e-ink can't show colour and
+flattening early keeps contrast predictable. **Colour** is there for a colour
+Kindle, or a PDF you'll read on a screen.
 
 Conversions run in the background service worker, not in the popup. Clicking
 the page dismisses the popup — that's unavoidable for a browser popup — but the
@@ -63,6 +69,26 @@ Sign-in (accounts are required — the server is invite-only):
 The API key is stored in `chrome.storage.local` (never synced); the server URL
 and button toggles sync via `chrome.storage.sync`. Non-localhost server origins
 trigger a one-time browser permission prompt (`optional_host_permissions`).
+
+## Versioning and updates
+
+The version lives in **`manifest.json`** and is the single source of truth —
+the server reads it out of the bundle it serves and reports it at `/status`.
+
+Chrome's format is 1–4 dot-separated integers (`0.3.0`), with no `-beta`
+suffixes; we read it as semver otherwise. Bump it in the same commit as the
+change, then rebuild and push the image — the server hands out whatever
+`extension/` was baked in, so an unbumped manifest silently tells every user
+they're up to date.
+
+Because this is a **Load unpacked** install, the browser will never update it.
+Instead the extension compares its own version against `/status` on popup open
+and every 6 hours, and when the server is ahead it shows a badge dot plus one
+dismissible line in the popup (dismissal lasts until a newer version appears).
+Settings → **Version** shows both numbers and a **Check for updates** button.
+
+Users update by downloading the zip again, replacing the folder's contents,
+and hitting reload on the extension card. Sign-in survives.
 
 ## Files
 

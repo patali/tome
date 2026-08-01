@@ -33,6 +33,15 @@
   .err { color: #d1342f; } .ok { color: #1a9e4b; }
   #setup-hint { margin: 2px 0 10px; }
   #setup-hint a { color: inherit; }
+  /* Update notice: informative, not alarming — no red, no icon, sits below
+     the actions so it never displaces what the user came here to click. */
+  #update { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+    margin: 0 0 10px; padding: 7px 9px; font-size: 12px;
+    background: rgba(128,128,128,0.12); border-radius: 7px; }
+  #update-text { color: inherit; }
+  #update a { color: inherit; }
+  #update-dismiss { margin-left: auto; padding: 0 3px; font: inherit; line-height: 1;
+    background: none; border: none; cursor: pointer; color: #888; }
   #queue { margin-top: 10px; }
   #queue:empty { margin-top: 0; }
   .job { display: flex; gap: 7px; align-items: flex-start; padding: 7px 0;
@@ -57,6 +66,11 @@
     <button id="gear" title="Tome settings" aria-label="Tome settings">⚙</button>
   </h1>
   <div id="setup-hint" class="muted" hidden>Not connected — <a href="#" id="open-settings">open settings</a> to sign in.</div>
+  <div id="update" hidden>
+    <span id="update-text"></span>
+    <a href="#" id="update-how">How to update</a>
+    <button id="update-dismiss" title="Hide until the next version" aria-label="Dismiss">×</button>
+  </div>
   <div id="actions">
     <button id="reader" class="action primary" title="Open preview">
       <span class="ico">📖</span><span class="label">Open preview</span></button>
