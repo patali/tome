@@ -55,7 +55,8 @@ They install the extension, set the server URL in the popup, and redeem the
 code with their email + `@kindle.com` address — that's the whole signup.
 
 **The server distributes the extension itself**: point invitees at
-`http://your-server/install` — a step-by-step install guide with a download
+`https://your-server/` (the same page is at `/install`) — a step-by-step
+install and Kindle-setup guide with a download
 button for `GET /extension.zip` (bundled into the image at build time; when run
 from source, the `extension/` dir is zipped on the fly). Invite emails link to
 it automatically. Chrome blocks off-store one-click installs, so this is the
@@ -111,7 +112,7 @@ Auth is `Authorization: Bearer tome_…`. Errors are always `{ "error": "…" }`
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | `GET` | `/status` | — | `{ ok, service, version, authRequired, defaultFormat, pdfAvailable }` |
-| `GET` | `/install` | — | HTML install guide for invitees |
+| `GET` | `/` , `/install` | — | HTML install + Kindle-setup guide for invitees |
 | `GET` | `/extension.zip` | — | the browser extension, for manual install |
 | `POST` | `/auth/accept-invite` | — (rate-limited) | `{code, email, kindleEmail}` → `{apiKey, …}` — key shown once |
 | `POST` | `/convert` | user | article JSON → rendered file (`?format=pdf\|epub`) |
@@ -131,6 +132,7 @@ Article JSON: `{ title, byline, publishedTime, content (HTML), url, device?, for
 |---|---|---|
 | `TOME_PORT` | `8080` | listen port |
 | `TOME_DATA_DIR` | `./data` (`/data` in the image) | SQLite database location |
+| `TOME_BASE_URL` | derived from the request | public URL in self-links (setup page, invite emails); set it when a proxy rewrites `Host` |
 | `TOME_CHROME` | auto-detected | Chrome-family binary for PDF rendering |
 | `TOME_CHROME_FLAGS` | — (`--no-sandbox --disable-dev-shm-usage` in the image) | extra Chrome flags |
 | `TOME_RESEND_BASE_URL` | `https://api.resend.com` | override for testing |
