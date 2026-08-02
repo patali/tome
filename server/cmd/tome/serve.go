@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/patali/tome/server/internal/api"
 	"github.com/patali/tome/server/internal/pdfgen"
@@ -80,5 +81,33 @@ func runServe(_ []string) {
 		log.Printf("delivery: Resend not configured (tome admin settings set); Mail.app fallback for admin on macOS only")
 	}
 
+	startSweeper(st)
+
 	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
+}
+
+// startSweeper enforces the retention periods PRIVACY.md publishes. Runs once
+// at boot and daily after: this host reboots often enough that a boot-only
+// sweep would be unpredictable, and a timer alone would never run on a machine
+// that is restarted before it fires.
+func startSweeper(st *store.Store) {
+	sweep := func() {
+		conversions, requests, invites, err := st.Sweep()
+		if err != nil {
+			log.Printf("sweep: %v", err)
+			return
+		}
+		if conversions+requests+invites > 0 {
+			log.Printf("sweep: removed %d conversions, %d invite requests, %d expired invites",
+				conversions, requests, invites)
+		}
+	}
+	sweep()
+	go func() {
+		t := time.NewTicker(24 * time.Hour)
+		defer t.Stop()
+		for range t.C {
+			sweep()
+		}
+	}()
 }
