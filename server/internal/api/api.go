@@ -51,6 +51,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.handleLandingPage)
 	mux.HandleFunc("GET /install", s.handleInstallPage)
 	mux.HandleFunc("GET /fonts/{name}", s.handleFont)
+	mux.HandleFunc("GET /icon.png", s.handleIcon)
 	mux.HandleFunc("GET /extension.zip", s.handleExtensionZip)
 	mux.HandleFunc("GET /privacy", s.handlePrivacy)
 	mux.Handle("POST /auth/accept-invite", s.limiter.Wrap(http.HandlerFunc(s.handleAcceptInvite)))
