@@ -81,6 +81,15 @@ func runServe(_ []string) {
 		log.Printf("delivery: Resend not configured (tome admin settings set); Mail.app fallback for admin on macOS only")
 	}
 
+	// Worth a line at boot because the failure is silent and lands on someone
+	// else: pages served through a proxy get the right host from the request,
+	// but an invite sent from the admin CLI is generated on a 127.0.0.1
+	// request and would carry links the recipient cannot open.
+	if os.Getenv("TOME_BASE_URL") == "" {
+		log.Printf("TOME_BASE_URL is unset — emailed links use the requesting host, " +
+			"so invites sent from the admin CLI will point at localhost")
+	}
+
 	startSweeper(st)
 
 	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
