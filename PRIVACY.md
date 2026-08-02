@@ -133,11 +133,12 @@ emailing a file to a Kindle.
 | `scripting` | Run the extractor in that page to pull out the article. |
 | `storage` | Keep the settings and history described above. |
 | `alarms` | Check every six hours whether your server has a newer extension version. |
-| `host_permissions` (localhost) | Reach a Tome server on your own machine. |
 
-A Tome server elsewhere needs **no permission at all**. The extension reaches
-it as an ordinary cross-origin request, which the server allows; nothing grants
-the extension access to any other site.
+**There are no host permissions at all**, for your own server or anyone else's.
+The extension reaches it as an ordinary cross-origin request, which the server
+allows. Nothing gives the extension standing access to any site — the only page
+it can ever read is the one whose toolbar button you clicked, for as long as
+that click lasts.
 
 ## If you are in the EU or UK
 
