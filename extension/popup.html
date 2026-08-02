@@ -2,81 +2,165 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Bundled faces. The popup is set in Literata like the rest of Tome: it is
+     the same product, and the serif is the identity. -->
+<link rel="stylesheet" href="fonts.css">
 <style>
-  :root { color-scheme: light dark; }
-  body { width: 260px; margin: 0; padding: 14px;
-    font: 13px/1.4 ui-sans-serif, system-ui, sans-serif; color: #111; background: #fff; }
-  @media (prefers-color-scheme: dark) { body { color: #eee; background: #1c1c1e; } }
-  h1 { font-size: 14px; margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
-  h1 img { width: 20px; height: 20px; }
-  #gear { margin-left: auto; padding: 2px 6px; font-size: 15px; line-height: 1;
-    background: none; border: none; cursor: pointer; border-radius: 6px; color: inherit; }
-  #gear:hover { background: rgba(128,128,128,0.18); }
-  button.action { display: block; width: 100%; margin: 0 0 8px; padding: 10px;
-    font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; border: 1px solid #888;
-    background: inherit; color: inherit; }
-  button.action .ico { margin-right: 7px; }
-  /* Icons-only mode: one compact row of square buttons (labels in tooltips). */
+  /* Paper by day, warm ink by night.
+     The site commits to light because it is a page you visit. This is a tool
+     that lives inside browser chrome and gets opened dozens of times a day, so
+     a bright rectangle against a dark browser is the wrong answer. The dark
+     palette keeps the same relationships — warm ground, ink text, one accent —
+     rather than inverting to grey. */
+  :root {
+    color-scheme: light dark;
+    --paper: #fbf6ec;
+    --tile:  #f3ebda;
+    --ink:   #211d17;
+    --body:  #3a352b;
+    --muted: #6b6357;
+    --accent:#bb4a1f;
+    --rule:  #ece3d2;
+    --line:  #cabd9f;
+    --ok:    #3f7d4a;
+    --bad:   #a3301c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #1a1714;
+      --tile:  #241f1a;
+      --ink:   #ece7e0;
+      --body:  #d2cabf;
+      --muted: #9a9188;
+      /* Brick is too dark to read against ink; same hue, lifted. */
+      --accent:#e08a55;
+      --rule:  #322c25;
+      --line:  #423a30;
+      --ok:    #7fb489;
+      --bad:   #e8907c;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    width: 300px; margin: 0; padding: 16px 16px 14px;
+    background: var(--paper); color: var(--ink);
+    font: 400 13.5px/1.5 Literata, Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 { font-size: 19px; font-style: italic; font-weight: 500;
+    margin: 0 0 14px; display: flex; align-items: center; gap: 9px; }
+  h1 img { width: 22px; height: 22px; }
+
+  #gear { margin-left: auto; display: inline-flex; padding: 4px;
+    background: none; border: 0; cursor: pointer; border-radius: 6px;
+    color: var(--muted); line-height: 0; }
+  #gear:hover { background: var(--tile); color: var(--ink); }
+  #gear svg { width: 17px; height: 17px; }
+
+  button.action {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    width: 100%; margin: 0 0 8px; padding: 11px 12px;
+    font: inherit; font-size: 14px; cursor: pointer;
+    border-radius: 9px; border: 1px solid var(--line);
+    background: transparent; color: var(--ink);
+  }
+  button.action:hover { background: var(--tile); }
+  button.action .ico { display: inline-flex; line-height: 0; flex: none; }
+  button.action svg { width: 16px; height: 16px; }
+  /* Compound selector on purpose: `button.action` is (0,1,1) and would
+     otherwise out-specify a bare `.primary`, silently losing the accent fill. */
+  button.primary, button.action.primary {
+    background: var(--accent); border-color: var(--accent); color: var(--paper); }
+  button.primary:hover, button.action.primary:hover { filter: brightness(0.93); }
+  button:disabled { opacity: 0.45; cursor: default; }
+
+  /* Icons-only: one compact row, labels move to the tooltip. */
   body.icons-only #actions { display: flex; gap: 8px; }
-  body.icons-only button.action { width: auto; flex: 1; margin: 0; padding: 10px 0; font-size: 19px; }
-  body.icons-only button.action .ico { margin: 0; }
+  body.icons-only button.action { width: auto; flex: 1; margin: 0; padding: 11px 0; }
+  body.icons-only button.action svg { width: 18px; height: 18px; }
   body.icons-only button.action .label { display: none; }
-  .primary { background: #111; color: #fff; border-color: #111; }
-  @media (prefers-color-scheme: dark) { .primary { background: #eee; color: #111; border-color: #eee; } }
-  button:disabled { opacity: 0.5; cursor: default; }
-  #server { margin-top: 4px; }
-  #status { margin-top: 8px; font-size: 12px; min-height: 16px; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-    background: #bbb; margin-right: 5px; vertical-align: middle; }
-  .dot.up { background: #1a9e4b; } .dot.down { background: #d1342f; }
-  .muted { color: #888; }
-  .err { color: #d1342f; } .ok { color: #1a9e4b; }
-  #setup-hint { margin: 2px 0 10px; }
-  #setup-hint a { color: inherit; }
-  /* Update notice: informative, not alarming — no red, no icon, sits below
-     the actions so it never displaces what the user came here to click. */
-  #update { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
-    margin: 0 0 10px; padding: 7px 9px; font-size: 12px;
-    background: rgba(128,128,128,0.12); border-radius: 7px; }
-  #update-text { color: inherit; }
-  #update a { color: inherit; }
-  #update-dismiss { margin-left: auto; padding: 0 3px; font: inherit; line-height: 1;
-    background: none; border: none; cursor: pointer; color: #888; }
-  #queue { margin-top: 10px; }
+
+  #server { margin-top: 10px; font-size: 12.5px; color: var(--muted);
+    display: flex; align-items: center; gap: 7px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--line); flex: none; }
+  .dot.up { background: var(--ok); } .dot.down { background: var(--bad); }
+
+  .muted { color: var(--muted); }
+  .err { color: var(--bad); } .ok { color: var(--ok); }
+  #status { margin-top: 8px; font-size: 12.5px; min-height: 16px; }
+  #setup-hint { margin: 0 0 11px; font-size: 12.5px; }
+  #setup-hint a, #update a { color: var(--accent); }
+
+  /* Update notice: informative, not alarming — no red, no icon, and below the
+     actions so it never displaces what the user came here to click. */
+  #update { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+    margin: 0 0 11px; padding: 8px 10px; font-size: 12.5px;
+    background: var(--tile); border-radius: 8px; color: var(--body); }
+  #update-dismiss { margin-left: auto; padding: 0 3px; font: inherit;
+    line-height: 1; background: none; border: 0; cursor: pointer; color: var(--muted); }
+  #update-dismiss:hover { color: var(--ink); }
+
+  #queue { margin-top: 11px; }
   #queue:empty { margin-top: 0; }
-  .job { display: flex; gap: 7px; align-items: flex-start; padding: 7px 0;
-    border-top: 1px solid rgba(128,128,128,0.25); font-size: 12px; }
-  .job .jico { flex: none; line-height: 1.35; }
+  .job { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0;
+    border-top: 1px solid var(--rule); font-size: 12.5px; }
+  .job .jico { flex: none; line-height: 1.4; }
   .job .jbody { min-width: 0; }
   .job .jtitle { display: block; overflow: hidden; text-overflow: ellipsis;
-    white-space: nowrap; font-weight: 600; }
-  .job .jmsg { display: block; color: #888; }
-  .job.error .jmsg { color: #d1342f; white-space: normal; }
-  .job.done .jmsg { color: #1a9e4b; }
+    white-space: nowrap; font-weight: 600; color: var(--ink); }
+  .job .jmsg { display: block; color: var(--muted); }
+  .job.error .jmsg { color: var(--bad); white-space: normal; }
+  .job.done .jmsg { color: var(--ok); }
   /* The running marker pulses so a stalled job is distinguishable from a
      finished one at a glance. */
   .job.running .jico { animation: pulse 1.1s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 0.3; } }
   @media (prefers-reduced-motion: reduce) { .job.running .jico { animation: none; } }
+
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
   <h1><img src="icons/icon48.png" alt=""> Tome
-    <button id="gear" title="Tome settings" aria-label="Tome settings">⚙</button>
+    <button id="gear" title="Tome settings" aria-label="Tome settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
   </h1>
+
   <div id="setup-hint" class="muted" hidden>Not connected — <a href="#" id="open-settings">open settings</a> to sign in.</div>
+
   <div id="update" hidden>
     <span id="update-text"></span>
     <a href="#" id="update-how">How to update</a>
     <button id="update-dismiss" title="Hide until the next version" aria-label="Dismiss">×</button>
   </div>
+
   <div id="actions">
     <button id="reader" class="action primary" title="Open preview">
-      <span class="ico">📖</span><span class="label">Open preview</span></button>
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 5.5A2.5 2.5 0 0 1 4.5 3H10a2 2 0 0 1 2 2v14a1.5 1.5 0 0 0-1.5-1.5H4.5A2.5 2.5 0 0 1 2 15z"></path>
+          <path d="M22 5.5A2.5 2.5 0 0 0 19.5 3H14a2 2 0 0 0-2 2v14a1.5 1.5 0 0 1 1.5-1.5h6A2.5 2.5 0 0 0 22 15z"></path>
+        </svg>
+      </span><span class="label">Open preview</span></button>
     <button id="kindle" class="action" title="Send to Kindle">
-      <span class="ico">📤</span><span class="label">Send to Kindle</span></button>
+      <span class="ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V3"></path><path d="m7 8 5-5 5 5"></path>
+          <path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"></path>
+        </svg>
+      </span><span class="label">Send to Kindle</span></button>
   </div>
+
   <div id="server"><span class="dot" id="dot"></span><span id="server-text" class="muted">checking server…</span></div>
   <div id="queue"></div>
   <div id="status"></div>

@@ -4,52 +4,120 @@
 <meta charset="utf-8">
 <title>Tome — Settings</title>
 <link rel="icon" type="image/png" href="icons/icon48.png">
-<!-- Bundled faces, so each option can be previewed in its own typeface. -->
+<!-- Bundled faces: the page is set in Literata, and each reading-font option
+     previews itself in its own typeface. -->
 <link rel="stylesheet" href="fonts.css">
 <style>
-  :root { color-scheme: light dark; }
-  body { max-width: 460px; margin: 0 auto; padding: 28px 20px 48px;
-    font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; color: #111; background: #fff; }
-  @media (prefers-color-scheme: dark) { body { color: #eee; background: #1c1c1e; } }
-  h1 { font-size: 18px; display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
+  /* Same palette as the popup — paper by day, warm ink by night. This is a
+     tool inside the browser rather than a page you visit, so it follows the
+     browser instead of committing to light the way the site does. */
+  :root {
+    color-scheme: light dark;
+    --paper: #fbf6ec;
+    --tile:  #f3ebda;
+    --ink:   #211d17;
+    --body:  #3a352b;
+    --muted: #6b6357;
+    --eyebrow:#9a7a55;
+    --accent:#bb4a1f;
+    --rule:  #ece3d2;
+    --line:  #cabd9f;
+    --field: #fffdf8;
+    --ok:    #3f7d4a;
+    --bad:   #a3301c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #1a1714;
+      --tile:  #241f1a;
+      --ink:   #ece7e0;
+      --body:  #d2cabf;
+      --muted: #9a9188;
+      --eyebrow:#b39468;
+      --accent:#e08a55;
+      --rule:  #322c25;
+      --line:  #423a30;
+      --field: #201c18;
+      --ok:    #7fb489;
+      --bad:   #e8907c;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    max-width: 520px; margin: 0 auto; padding: 34px 24px 64px;
+    background: var(--paper); color: var(--ink);
+    font: 400 15px/1.6 Literata, Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+
+  h1 { font-size: 24px; font-style: italic; font-weight: 500;
+    display: flex; align-items: center; gap: 10px; margin: 0 0 6px; }
   h1 img { width: 26px; height: 26px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em;
-    color: #888; margin: 28px 0 8px; }
+
+  /* Section headings borrow the site's spaced small-caps rule. */
+  h2 { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase;
+    font-weight: 600; color: var(--eyebrow); margin: 38px 0 10px;
+    padding-top: 20px; border-top: 1px solid var(--rule); }
+
   input[type=text], input[type=email], input[type=password] {
-    display: block; width: 100%; box-sizing: border-box; margin: 8px 0 0;
-    padding: 8px 10px; font: inherit; border: 1px solid #888; border-radius: 8px;
-    background: inherit; color: inherit; }
-  button { padding: 8px 14px; margin-top: 10px; font: inherit; font-weight: 600;
-    cursor: pointer; border-radius: 8px; border: 1px solid #888; background: inherit; color: inherit; }
-  .primary { background: #111; color: #fff; border-color: #111; }
-  @media (prefers-color-scheme: dark) { .primary { background: #eee; color: #111; border-color: #eee; } }
-  .row { display: flex; gap: 8px; align-items: flex-start; }
+    display: block; width: 100%; margin: 8px 0 0; padding: 10px 13px;
+    font: inherit; font-size: 14px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--field); color: var(--ink);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  button { padding: 10px 18px; margin-top: 10px; font: inherit; font-size: 14px;
+    cursor: pointer; border-radius: 8px; border: 1px solid var(--line);
+    background: transparent; color: var(--ink); }
+  button:hover { background: var(--tile); }
+  /* Compound selector on purpose: `button.action` is (0,1,1) and would
+     otherwise out-specify a bare `.primary`, silently losing the accent fill. */
+  button.primary, button.action.primary {
+    background: var(--accent); border-color: var(--accent); color: var(--paper); }
+  button.primary:hover, button.action.primary:hover { filter: brightness(0.93); }
+  button:disabled { opacity: 0.45; cursor: default; }
+
+  .row { display: flex; gap: 9px; align-items: flex-start; }
   .row input { flex: 1; }
-  .muted { color: #888; } .err { color: #d1342f; } .ok { color: #1a9e4b; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-    background: #bbb; margin-right: 5px; vertical-align: middle; }
-  .dot.up { background: #1a9e4b; } .dot.down { background: #d1342f; }
-  label.toggle { display: flex; align-items: center; gap: 10px; padding: 8px 0; cursor: pointer; }
-  label.toggle input { width: 16px; height: 16px; }
-  #note { min-height: 20px; margin-top: 10px; }
-  a { color: inherit; }
-  .hrow { display: flex; gap: 10px; align-items: baseline; padding: 8px 0;
-    border-top: 1px solid rgba(128,128,128,0.25); }
-  .hrow .hstate { flex: none; width: 14px; text-align: center; }
+  .row button { margin-top: 8px; flex: none; }
+
+  .muted { color: var(--muted); }
+  .err { color: var(--bad); } .ok { color: var(--ok); }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--line); margin-right: 7px; vertical-align: middle; }
+  .dot.up { background: var(--ok); } .dot.down { background: var(--bad); }
+  #server-line { font-size: 13.5px; }
+  #note { min-height: 22px; margin-top: 14px; font-size: 14px; }
+
+  label.toggle { display: flex; align-items: center; gap: 11px; padding: 7px 0;
+    cursor: pointer; font-size: 14.5px; }
+  label.toggle input { width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+
+  /* History rows, matching the conversion list's shape on the site. */
+  .hrow { display: flex; gap: 11px; align-items: baseline; padding: 9px 0;
+    border-top: 1px solid var(--rule); }
+  .hrow .hstate { flex: none; width: 15px; text-align: center; }
   .hrow .hbody { flex: 1; min-width: 0; }
-  .hrow .htitle { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .hrow .hmsg { font-size: 12px; color: #888; }
-  .hrow.error .hmsg { color: #d1342f; }
-  .hrow .hwhen { flex: none; font-size: 12px; color: #888; }
+  .hrow .htitle { display: block; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; font-size: 14px; }
+  .hrow .hmsg { font-size: 12.5px; color: var(--muted); }
+  .hrow.error .hmsg { color: var(--bad); }
+  .hrow .hwhen { flex: none; font-size: 12.5px; color: var(--muted); }
+
   /* Each option previews itself in its own face — the only honest way to pick. */
-  label.font { display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
-    padding: 9px 11px; margin: 6px 0; border: 1px solid rgba(128,128,128,0.35);
-    border-radius: 9px; }
-  label.font:hover { background: rgba(128,128,128,0.08); }
-  label.font input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
-  label.font .fname { font-weight: 600; }
-  label.font .fwhy { font-size: 12px; color: #888; }
-  label.font .fsample { display: block; margin-top: 3px; font-size: 15px; line-height: 1.35; }
+  label.font { display: flex; gap: 11px; align-items: flex-start; cursor: pointer;
+    padding: 11px 13px; margin: 7px 0; border: 1px solid var(--rule);
+    border-radius: 9px; background: transparent; }
+  label.font:hover { background: var(--tile); }
+  label.font:has(input:checked) { border-color: var(--accent); background: var(--tile); }
+  label.font input { margin-top: 4px; width: 16px; height: 16px; flex: none;
+    accent-color: var(--accent); }
+  label.font .fname { font-weight: 600; font-size: 14.5px; }
+  label.font .fwhy { font-size: 12.5px; color: var(--muted); }
+  label.font .fsample { display: block; margin-top: 4px; font-size: 16px; line-height: 1.4; }
+
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -59,7 +127,7 @@
 
   <h2>Server</h2>
   <div class="row">
-    <input id="server-url" type="text" placeholder="http://localhost:8080" spellcheck="false" aria-label="Server URL">
+    <input id="server-url" type="text" placeholder="https://tome.example.com" spellcheck="false" aria-label="Server URL">
     <button id="save-server">Save</button>
   </div>
 
@@ -91,12 +159,12 @@
   <p class="muted" style="margin:0">Style</p>
   <label class="toggle"><input type="radio" name="btn-style" id="style-text" value="text"> <b>Icon + text</b> (stacked buttons)</label>
   <label class="toggle"><input type="radio" name="btn-style" id="style-icons" value="icons"> <b>Icons only</b> (compact row)</label>
-  <p class="muted" style="margin:12px 0 0">Visibility</p>
+  <p class="muted" style="margin:14px 0 0">Visibility</p>
   <label class="toggle"><input type="checkbox" id="btn-preview"> Show <b>Open preview</b></label>
   <label class="toggle"><input type="checkbox" id="btn-kindle"> Show <b>Send to Kindle</b> (direct email delivery)</label>
 
   <h2>Reading font</h2>
-  <p class="muted" style="margin:0 0 4px">Sets the body text in the preview and in
+  <p class="muted" style="margin:0 0 6px">Sets the body text in the preview and in
   the document sent to your Kindle. Code always stays monospaced.</p>
   <div id="font-choices"></div>
 
