@@ -11,6 +11,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
 )
 
 // publicBaseURL (TOME_BASE_URL) overrides the request-derived value — needed
@@ -170,9 +173,19 @@ func zipDir(dir string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// handlePrivacy serves PRIVACY.md. Served as text so there is exactly one copy
-// of the policy in the repo — a hosted URL is required for a store listing, and
-// a second HTML rendering would be a second thing to keep true.
+// privacyMD renders the policy. GFM tables are enabled because the policy's
+// two inventories (what the extension stores, what each permission is for) are
+// written as tables; raw HTML stays disabled, which costs nothing since the
+// source is ours and markdown-only.
+var privacyMD = goldmark.New(goldmark.WithExtensions(extension.Table))
+
+// handlePrivacy renders PRIVACY.md.
+//
+// The policy is rendered rather than restated: PRIVACY.md remains the single
+// copy in the repo, which is what makes the hosted page and the one GitHub
+// shows provably the same document. Restating it in a template to get the
+// styling would create a second thing to keep true, and a privacy policy that
+// has quietly drifted from its canonical copy is worse than an ugly one.
 func (s *Server) handlePrivacy(w http.ResponseWriter, r *http.Request) {
 	if s.PrivacyPath == "" {
 		errJSON(w, http.StatusNotFound, "privacy policy not bundled (TOME_PRIVACY_PATH)")
@@ -183,9 +196,21 @@ func (s *Server) handlePrivacy(w http.ResponseWriter, r *http.Request) {
 		errJSON(w, http.StatusNotFound, "privacy policy not found at "+s.PrivacyPath)
 		return
 	}
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(data)
+
+	var body bytes.Buffer
+	if err := privacyMD.Convert(data, &body); err != nil {
+		// Fall back to the raw markdown rather than an error page: an
+		// unstyled policy still discharges the obligation to publish one.
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write(data)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = privacyTmpl.Execute(w, struct {
+		Base string
+		Body template.HTML
+	}{Base: baseURL(r), Body: template.HTML(body.String())})
 }
 
 func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
@@ -490,6 +515,149 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
     </div>
     <div class="sig">Tome — read it properly.</div>
   </div>
+</footer>
+
+</body>
+</html>
+`))
+
+var privacyTmpl = template.Must(template.New("privacy").Parse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy — Tome</title>
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<meta name="theme-color" content="#fbf6ec">
+<style>
+  @font-face {
+    font-family: 'Literata';
+    src: url('/fonts/Literata-normal-latin.woff2') format('woff2');
+    font-weight: 400 900; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Literata';
+    src: url('/fonts/Literata-var-italic-latin.woff2') format('woff2');
+    font-weight: 400 700; font-style: italic; font-display: swap;
+  }
+
+  :root {
+    color-scheme: light;
+    --paper: #fbf6ec; --tile: #f3ebda; --ink: #2a2620; --body: #3a352b;
+    --soft: #5a5348; --muted: #6b6357; --faint: #8a8175;
+    --accent: #bb4a1f; --rule: #ece3d2; --hair: #efe7d6; --mono: #7a3414;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+    font: 400 17px/1.7 Literata, Georgia, 'Times New Roman', serif;
+    -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 0 40px; }
+  @media (max-width: 560px) { .wrap { padding: 0 22px; } }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: #9a3c17; text-decoration: underline; }
+
+  .mark { position: relative; display: inline-flex; flex-shrink: 0;
+    background: #211d17; box-sizing: border-box;
+    width: 26px; height: 33px; border-radius: 5px; padding: 3px; }
+  .mark > .screen { position: relative; flex: 1; background: var(--tile);
+    border-radius: 2px; display: flex; align-items: center;
+    justify-content: center; overflow: hidden; }
+  .mark .ribbon { position: absolute; top: -1px; right: 4px; width: 4px; height: 11px;
+    background: var(--accent);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 74%, 0 100%); }
+  .mark .t { font-family: Literata, serif; font-weight: 600; font-style: italic;
+    color: #211d17; line-height: 1; font-size: 19px; margin-top: 2px; }
+
+  header.site { display: flex; align-items: center; justify-content: space-between;
+    gap: 20px; padding: 24px 0; border-bottom: 1px solid var(--rule); }
+  .lockup { display: flex; align-items: center; gap: 11px; }
+  .lockup:hover { text-decoration: none; }
+  .lockup .word { font-weight: 500; font-size: 21px; font-style: italic; color: var(--ink); }
+  nav.site { display: flex; gap: 24px; font-size: 14px; }
+  nav.site a { color: var(--muted); }
+  nav.site a:hover { color: var(--ink); text-decoration: none; }
+
+  main { padding: 56px 0 40px; }
+
+  /* ── rendered markdown ────────────────────────────────────────────────
+     Everything below styles goldmark's output. The policy itself lives in
+     PRIVACY.md and is rendered, never restated here. */
+  .md h1 { font-weight: 700; font-size: clamp(28px, 5vw, 34px); line-height: 1.15;
+    letter-spacing: -0.01em; margin: 0; }
+  /* The "Last updated" line is the one emphasis directly after the title. */
+  .md h1 + p em { font-style: normal; font-size: 14px; color: var(--faint); }
+  .md h1 + p { margin: 10px 0 0; }
+  .md h2 { font-weight: 600; font-size: 20px; margin: 52px 0 6px;
+    padding-top: 26px; border-top: 1px solid var(--rule); }
+  .md p { font-size: 17px; line-height: 1.7; color: var(--body); margin: 18px 0 0; }
+  .md strong { font-weight: 600; color: var(--ink); }
+  .md code { font-family: ui-monospace, Menlo, monospace; font-size: 0.85em;
+    color: var(--mono); background: #f0e7d5; padding: 1px 6px; border-radius: 4px; }
+  .md ul { margin: 14px 0 0; padding-left: 22px; }
+  .md li { font-size: 16px; line-height: 1.7; color: var(--body); margin: 0 0 8px; }
+
+  /* Tables carry the two inventories. Rendered as rows rather than a grid so
+     a long "why" column wraps under its label instead of squeezing it. */
+  .md table { width: 100%; border-collapse: collapse; margin: 20px 0 0; }
+  .md thead { display: none; }
+  .md tr { display: block; padding: 16px 0; border-bottom: 1px solid var(--hair); }
+  .md td { display: block; padding: 0; }
+  .md td:first-child { font-weight: 600; font-size: 16px; color: var(--ink); }
+  .md td:last-child { font-size: 15px; line-height: 1.6; color: var(--muted); margin-top: 5px; }
+
+  /* The 3-column inventory puts its storage area on the same line as the
+     name, right-aligned and monospaced, the way the spec reads it. */
+  .md table:has(td:nth-child(3)) tr {
+    display: grid; grid-template-columns: 1fr auto; column-gap: 16px; align-items: baseline; }
+  .md table:has(td:nth-child(3)) td:nth-child(2) {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    color: #8a7a5f; white-space: nowrap; text-align: right; }
+  .md table:has(td:nth-child(3)) td:nth-child(2) code { background: none; padding: 0; color: inherit; }
+  .md table:has(td:nth-child(3)) td:nth-child(3) { grid-column: 1 / -1; }
+
+  /* The 2-column one is a definition list: term left, reason right. */
+  .md table:not(:has(td:nth-child(3))) tr {
+    display: grid; grid-template-columns: 180px 1fr; gap: 20px; padding: 12px 0;
+    align-items: baseline; }
+  .md table:not(:has(td:nth-child(3))) td:first-child {
+    font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--mono);
+    font-weight: 400; }
+  .md table:not(:has(td:nth-child(3))) td:first-child code { background: none; padding: 0; color: inherit; }
+  .md table:not(:has(td:nth-child(3))) td:last-child {
+    font-size: 15.5px; color: var(--body); margin-top: 0; }
+  @media (max-width: 560px) {
+    .md table:not(:has(td:nth-child(3))) tr { grid-template-columns: 1fr; gap: 4px; }
+  }
+
+  footer.site { border-top: 1px solid var(--rule); }
+  footer.site .inner { max-width: 680px; margin: 0 auto; padding: 24px 40px;
+    font-size: 14px; color: var(--faint); font-style: italic; }
+  @media (max-width: 560px) { footer.site .inner { padding: 24px 22px; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="site">
+    <a class="lockup" href="{{.Base}}/">
+      <span class="mark"><span class="screen">
+        <span class="ribbon"></span><span class="t">T</span>
+      </span></span>
+      <span class="word">Tome</span>
+    </a>
+    <nav class="site">
+      <a href="{{.Base}}/install">Install</a>
+      <a href="{{.Base}}/#what">What it does</a>
+    </nav>
+  </header>
+
+  <main class="md">{{.Body}}</main>
+</div>
+
+<footer class="site">
+  <div class="inner">Tome — read it properly.</div>
 </footer>
 
 </body>
