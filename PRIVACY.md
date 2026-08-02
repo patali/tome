@@ -63,12 +63,36 @@ If email delivery is configured, the operator supplies a
 your Kindle address through Resend. Amazon then receives it, as it must for
 Send-to-Kindle to work at all.
 
+## If you ask for an invite
+
+A server may put a form on its landing page for requesting one. If you use it,
+the only thing collected is **the email address you type**. It is emailed to
+the operator so they can send you a code. It is not added to any list, used for
+anything else, or passed on, and nothing is ever sent back to it except an
+invite — if the operator chooses to send one.
+
+Your IP address is **not** recorded with the request. The form is protected by
+a challenge and a rate limit, and those handle abuse — so storing an identifier
+for someone who isn't yet a user would inform no decision anyone makes.
+
+Requests are kept for **up to three months** and then deleted, whether or not
+an invite was sent.
+
 ## Third parties
 
 **There are none in the extension.** No analytics, no telemetry, no crash
 reporting, no advertising or tracking SDK, no CDN. Fonts are bundled in the
 package rather than fetched from Google Fonts, specifically so that opening a
 preview doesn't disclose to a third party that you're reading something.
+
+**A server's website is separate from the extension**, and what it involves
+depends on how the operator hosts it. A server reachable over the public
+internet usually sits behind a proxy or CDN, which necessarily sees the
+connection — including your IP address — in order to route it at all. If its
+landing page carries an invite form, the anti-spam challenge on that form also
+runs in your browser and comes from whoever provides it. Neither is analytics,
+and neither is part of the extension; both follow from the site being publicly
+reachable. Ask your operator what their deployment uses.
 
 Downstream of your server, exactly two services are involved, and only if the
 operator set up delivery: **Resend**, which transmits the email, and
@@ -103,8 +127,54 @@ emailing a file to a Kindle.
 | `host_permissions` (localhost) | Reach a Tome server on your own machine. |
 | Optional host permissions | Reach a Tome server elsewhere. Requested **at the moment you enter its address**, and only for that host. |
 
+## If you are in the EU or UK
+
+Tome has no company behind it, so there is no central controller to write to.
+**The operator of the server you use is the data controller** for everything
+that server holds; the authors of Tome are not, because none of it reaches
+them. This server's operator and how to reach them are shown at the end of this
+page.
+
+**Why each thing is processed, and on what basis**
+
+| Purpose | Basis |
+|---|---|
+| Running your account, converting articles, delivering them to your Kindle | Performance of the contract you enter into by redeeming an invite |
+| Handling an invite request | Legitimate interests — answering someone who asked to be let in |
+| Rate limiting and the anti-spam challenge | Legitimate interests — keeping the server usable |
+
+**How long things are kept**
+
+| Data | Kept for |
+|---|---|
+| Articles you convert | Not kept. Rendered in a temporary directory that is deleted after sending |
+| Your email and Kindle address, and the hash of your API key | As long as your account exists; deleted when it is |
+| Unused invite codes | Until used or expired |
+| Invite requests | Up to three months |
+
+**Where it goes.** The server is run by an individual and may be anywhere,
+including outside the EEA or UK — commonly on a machine in the operator's own
+home. If delivery is configured, Resend and Amazon receive your Kindle address
+and the document, and both are US companies. Ask your operator where their
+server is if it matters to you.
+
+**Your rights.** You have the right to access your data, to correct it, to have
+it erased, to restrict or object to its processing, and to receive it in a
+portable form. The **Your control** section above is how each is exercised in
+practice; for anything it doesn't cover, ask the operator. You also have the
+right to complain to your data protection authority — in the EU, the one for
+the country you live in; in the UK, the
+[ICO](https://ico.org.uk/make-a-complaint/).
+
+There is no automated decision-making or profiling, and nothing here is sold or
+shared with data brokers.
+
 ## Contact
 
 Tome is open source — read the code, or raise an issue, at
-<https://github.com/patali/tome>. For data held by a server you were invited
-to, contact whoever invited you; they administer it, not the Tome authors.
+<https://github.com/patali/tome>. That reaches the authors, who hold none of
+your data.
+
+For data held by a server you were invited to, contact its operator — they
+administer it. If you don't know who that is, it is whoever gave you your
+invite code.

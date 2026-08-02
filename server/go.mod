@@ -4,6 +4,7 @@ go 1.25.4
 
 require (
 	github.com/go-shiori/go-epub v1.2.1
+	github.com/yuin/goldmark v1.8.5
 	golang.org/x/net v0.56.0
 	modernc.org/sqlite v1.54.0
 )
