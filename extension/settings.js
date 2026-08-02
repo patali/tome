@@ -105,7 +105,10 @@ document.getElementById("save-key").addEventListener("click", async function () 
 
 document.getElementById("save-kindle").addEventListener("click", async function () {
   var kindle = document.getElementById("kindle-edit").value.trim();
-  if (!kindle) { note("Enter your @kindle.com address.", "err"); return; }
+  // Not "@kindle.com": the delivery address can be any mailbox. Most people
+  // use their Kindle, but nothing enforces it, and the message should not
+  // claim otherwise.
+  if (!kindle) { note("Enter a delivery address.", "err"); return; }
   note("Saving…");
   var r = await send({ type: "updateKindle", kindleEmail: kindle });
   if (r.error) { note(r.error, "err"); return; }

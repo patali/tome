@@ -522,6 +522,13 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
           invite, and can change it any time in the extension's
           <strong>settings → Account → Kindle address</strong>. Do this whenever you
           switch Kindles, since the address is per-device.</p>
+
+          <p class="note"><strong>Not using a Kindle?</strong> The delivery address
+          doesn't have to be one. Put in any address you can receive at and the
+          document arrives there as a normal attachment — which also means none of
+          this step applies: no Amazon page, no approved-sender list. From there a
+          rule in your mail client, or something like Zapier or IFTTT, can file it,
+          push it to a reader, or drop it in cloud storage.</p>
         </div>
       </div>
     </div>

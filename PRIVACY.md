@@ -50,7 +50,8 @@ asks what extension version it has), and reading or updating your profile.
 
 ## What the server receives
 
-Your server stores your **email address**, your **Kindle email address**, and a
+Your server stores your **email address**, the **address documents are
+delivered to** (usually a Kindle, but it can be any mailbox), and a
 **SHA-256 hash of your API key** (never the key itself). It keeps invite codes
 until they are used or expire.
 
