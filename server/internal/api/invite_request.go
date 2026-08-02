@@ -92,6 +92,13 @@ func (s *Server) handleInviteRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Recorded before the email is attempted: the queue is what the operator
+	// works from, so a request must survive a Resend outage rather than
+	// existing only as a message that failed to send.
+	if err := s.Store.AddInviteRequest(email); err != nil {
+		log.Printf("invite-request: could not record request: %v", err)
+	}
+
 	client, err := s.resendClient()
 	if err != nil || !client.Configured() {
 		log.Printf("invite-request: no delivery configured, dropped request from %s", email)
@@ -107,8 +114,10 @@ func (s *Server) handleInviteRequest(w http.ResponseWriter, r *http.Request) {
 		"Someone asked for a Tome invite.\n\n"+
 		"  email: %s\n"+
 		"  when:  %s\n\n"+
-		"Create one with:\n"+
-		"  tome admin invites create --email %s --send\n",
+		"Send it with:\n"+
+		"  tome admin requests invite %s\n\n"+
+		"Or see everyone waiting:\n"+
+		"  tome admin requests list\n",
 		email, time.Now().UTC().Format(time.RFC3339), email)
 
 	// The submitted address goes in the subject, never the To/Reply-To: a

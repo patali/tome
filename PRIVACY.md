@@ -55,8 +55,16 @@ Your server stores your **email address**, your **Kindle email address**, and a
 until they are used or expire.
 
 Articles are **not stored**. They are rendered to PDF or EPUB in a temporary
-directory, sent to your Kindle, and the temporary directory is deleted. What
-persists is the conversion history in your own browser, not on the server.
+directory, sent to your Kindle, and the temporary directory is deleted. The
+readable conversion history — which article, from where — exists only in your
+own browser.
+
+The server does keep a **minimal record that a conversion happened**, so the
+operator can see load and spot failures: which account, when, the format,
+whether it succeeded, the file size and how long it took. **No title, no URL,
+no domain** — nothing identifying what you read. These rows are deleted after
+**30 days**. The server also records the **date each account last used its
+key**, so the operator can tell an active account from an abandoned one.
 
 If email delivery is configured, the operator supplies a
 [Resend](https://resend.com) API key and the rendered document is emailed to
@@ -140,6 +148,7 @@ page.
 | Purpose | Basis |
 |---|---|
 | Running your account, converting articles, delivering them to your Kindle | Performance of the contract you enter into by redeeming an invite |
+| Keeping a 30-day record that a conversion happened | Legitimate interests — seeing load and failures on a server someone runs for free |
 | Handling an invite request | Legitimate interests — answering someone who asked to be let in |
 | Rate limiting and the anti-spam challenge | Legitimate interests — keeping the server usable |
 
@@ -148,6 +157,7 @@ page.
 | Data | Kept for |
 |---|---|
 | Articles you convert | Not kept. Rendered in a temporary directory that is deleted after sending |
+| The record that a conversion happened (no title or URL) | 30 days |
 | Your email and Kindle address, and the hash of your API key | As long as your account exists; deleted when it is |
 | Unused invite codes | Until used or expired |
 | Invite requests | Up to three months |

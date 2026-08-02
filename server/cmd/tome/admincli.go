@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -91,6 +92,122 @@ func runAdminCLI(args []string) {
 			fmt.Println("ok")
 		}
 
+	case "stats show", "stats":
+		sub := flag.NewFlagSet("stats", flag.ExitOnError)
+		perUser := sub.Bool("per-user", false, "also break down by user")
+		_ = sub.Parse(rest)
+		path := "/admin/stats"
+		if *perUser {
+			path += "?perUser=true"
+		}
+		out := c.do("GET", path, nil)
+		n := func(k string) int64 {
+			f, _ := out[k].(float64)
+			return int64(f)
+		}
+		fmt.Printf("users         %d total, %d active (30d), %d disabled\n",
+			n("users"), n("usersActive30d"), n("usersDisabled"))
+		fmt.Printf("conversions   %d today, %d this week, %d this month (%d failed)\n",
+			n("conversions1d"), n("conversions7d"), n("conversions30d"), n("failed30d"))
+		fmt.Printf("waiting       %d invite requests, %d unused invites\n",
+			n("requestsOpen"), n("invitesOpen"))
+		if rows, ok := out["perUser"].([]any); ok && len(rows) > 0 {
+			fmt.Printf("\n%-28s %-12s %-8s %s\n", "USER", "LAST SEEN", "30d", "FAILED")
+			for _, r := range rows {
+				m := r.(map[string]any)
+				seen, _ := m["lastSeenAt"].(string)
+				if seen == "" {
+					seen = "never"
+				} else if len(seen) >= 10 {
+					seen = seen[:10]
+				}
+				label, _ := m["email"].(string)
+				if m["disabled"] == true {
+					label += " (disabled)"
+				}
+				fmt.Printf("%-28s %-12s %-8v %v\n", label, seen, m["conversions"], m["failed"])
+			}
+		}
+
+	case "conversions list":
+		sub := flag.NewFlagSet("conversions list", flag.ExitOnError)
+		since := sub.String("since", "7d", "window: 7d, 24h, or an RFC3339 time")
+		user := sub.String("user", "", "filter to one user (email or id)")
+		limit := sub.Int("limit", 50, "maximum rows")
+		_ = sub.Parse(rest)
+		q := fmt.Sprintf("/admin/conversions?since=%s&limit=%d", url.QueryEscape(*since), *limit)
+		if *user != "" {
+			q += "&user=" + url.QueryEscape(*user)
+		}
+		out := c.do("GET", q, nil)
+		rows, _ := out["conversions"].([]any)
+		if len(rows) == 0 {
+			fmt.Println("no conversions in that window")
+			break
+		}
+		fmt.Printf("%-20s %-26s %-8s %-6s %-6s %-9s %s\n",
+			"WHEN", "USER", "KIND", "FMT", "OK", "SIZE", "TOOK")
+		for _, r := range rows {
+			m := r.(map[string]any)
+			ok := "yes"
+			if m["ok"] != true {
+				ok = "FAIL"
+			}
+			when, _ := m["createdAt"].(string)
+			when = strings.Replace(strings.TrimSuffix(when, "Z"), "T", " ", 1)
+			bytesN, _ := m["bytes"].(float64)
+			ms, _ := m["durationMs"].(float64)
+			fmt.Printf("%-20s %-26v %-8v %-6v %-6s %-9s %s\n",
+				when, m["userEmail"], m["kind"], m["format"], ok,
+				humanBytes(int64(bytesN)), humanMS(int64(ms)))
+		}
+
+	case "requests list":
+		sub := flag.NewFlagSet("requests list", flag.ExitOnError)
+		all := sub.Bool("all", false, "include handled requests")
+		_ = sub.Parse(rest)
+		path := "/admin/requests"
+		if *all {
+			path += "?all=true"
+		}
+		out := c.do("GET", path, nil)
+		rows, _ := out["requests"].([]any)
+		if len(rows) == 0 {
+			fmt.Println("nobody waiting")
+			break
+		}
+		fmt.Printf("%-5s %-34s %-12s %s\n", "ID", "EMAIL", "ASKED", "STATUS")
+		for _, r := range rows {
+			m := r.(map[string]any)
+			asked, _ := m["createdAt"].(string)
+			if len(asked) >= 10 {
+				asked = asked[:10]
+			}
+			fmt.Printf("%-5v %-34v %-12s %v\n", m["id"], m["email"], asked, m["status"])
+		}
+		fmt.Printf("\nSend one with: tome admin requests invite <id|email>\n")
+
+	case "requests invite":
+		requireArg(rest, "request id or email")
+		sub := flag.NewFlagSet("requests invite", flag.ExitOnError)
+		ttl := sub.Duration("ttl", 168*time.Hour, "invite validity")
+		_ = sub.Parse(rest[1:])
+		out := c.do("POST", "/admin/requests/"+url.PathEscape(rest[0])+"/invite",
+			map[string]any{"ttlHours": int(ttl.Hours())})
+		if out["emailed"] == true {
+			fmt.Printf("invited %v (code %v, expires %v)\n", out["email"], out["code"], out["expiresAt"])
+		} else {
+			// The code exists, so print it: the operator can still pass it on
+			// by hand, and the request stays pending for a retry.
+			fmt.Printf("created code %v for %v but the email failed: %v\n",
+				out["code"], out["email"], out["emailError"])
+		}
+
+	case "requests dismiss":
+		requireArg(rest, "request id or email")
+		out := c.do("POST", "/admin/requests/"+url.PathEscape(rest[0])+"/dismiss", nil)
+		fmt.Printf("dismissed %v\n", out["email"])
+
 	case "settings get":
 		out := c.do("GET", "/admin/settings", nil)
 		fmt.Printf("resend from:    %v\nresend api key: set=%v\n", out["resendFrom"], out["resendApiKeySet"])
@@ -172,4 +289,30 @@ func (c adminClient) do(method, path string, body any) map[string]any {
 		fatal("%s %s -> %s: %s", method, path, resp.Status, msg)
 	}
 	return out
+}
+
+// humanBytes and humanMS keep the conversions table scannable — exact byte
+// counts and millisecond figures are noise when you are looking for the run
+// that failed or the one that took thirty seconds.
+func humanBytes(n int64) string {
+	switch {
+	case n <= 0:
+		return "-"
+	case n < 1024:
+		return fmt.Sprintf("%dB", n)
+	case n < 1024*1024:
+		return fmt.Sprintf("%.0fK", float64(n)/1024)
+	default:
+		return fmt.Sprintf("%.1fM", float64(n)/(1024*1024))
+	}
+}
+
+func humanMS(ms int64) string {
+	if ms <= 0 {
+		return "-"
+	}
+	if ms < 1000 {
+		return fmt.Sprintf("%dms", ms)
+	}
+	return fmt.Sprintf("%.1fs", float64(ms)/1000)
 }

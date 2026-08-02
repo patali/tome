@@ -33,6 +33,7 @@ type payload struct {
 	To          []string     `json:"to"`
 	Subject     string       `json:"subject"`
 	Text        string       `json:"text"`
+	HTML        string       `json:"html,omitempty"`
 	Attachments []attachment `json:"attachments,omitempty"`
 }
 
@@ -85,4 +86,11 @@ func (c Client) SendAttachment(to, subject, text, filename string, data []byte) 
 // SendText emails a plain-text message (used for invites).
 func (c Client) SendText(to, subject, text string) error {
 	return c.send(payload{From: c.From, To: []string{to}, Subject: subject, Text: text})
+}
+
+// SendHTML emails an HTML message with a plain-text alternative. Both are
+// required, not optional: a text part is what keeps the message readable in
+// clients that refuse HTML, and its absence is itself a spam signal.
+func (c Client) SendHTML(to, subject, text, html string) error {
+	return c.send(payload{From: c.From, To: []string{to}, Subject: subject, Text: text, HTML: html})
 }
