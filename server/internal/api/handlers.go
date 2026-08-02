@@ -2,8 +2,10 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/patali/tome/server/internal/article"
 	"github.com/patali/tome/server/internal/auth"
@@ -98,11 +100,14 @@ func (s *Server) handleConvert(w http.ResponseWriter, r *http.Request) {
 	if format == "" {
 		format = a.Format
 	}
+	started := time.Now()
 	data, filename, contentType, err := buildDoc(a, format)
 	if err != nil {
+		s.record(r, "convert", format, false, 0, started)
 		errJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.record(r, "convert", format, true, int64(len(data)), started)
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.WriteHeader(http.StatusOK)
@@ -127,15 +132,21 @@ func (s *Server) handleSendToKindle(w http.ResponseWriter, r *http.Request) {
 			"email delivery not configured: the admin must set Resend settings (tome admin settings set)")
 		return
 	}
+	started := time.Now()
 	data, filename, _, err := buildDoc(a, a.Format)
 	if err != nil {
+		s.record(r, "send", a.Format, false, 0, started)
 		errJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if err := rc.SendAttachment(u.KindleEmail, a.Title, "Delivered by Tome.", filename, data); err != nil {
+		// Recorded as failed: from the reader's point of view nothing arrived,
+		// and a run that rendered but never delivered is the one worth seeing.
+		s.record(r, "send", a.Format, false, int64(len(data)), started)
 		errJSON(w, http.StatusBadGateway, err.Error())
 		return
 	}
+	s.record(r, "send", a.Format, true, int64(len(data)), started)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true, "method": "resend", "sentTo": u.KindleEmail,
 		"filename": filename, "bytes": len(data),
@@ -147,4 +158,20 @@ func (s *Server) handleSendToKindle(w http.ResponseWriter, r *http.Request) {
 func looksLikeEmail(s string) bool {
 	at := strings.Index(s, "@")
 	return at > 0 && at < len(s)-3 && strings.Contains(s[at:], ".") && !strings.ContainsAny(s, " \t\n")
+}
+
+// record appends a conversion row. Bookkeeping must never fail a user's
+// request, so an error here is logged and swallowed rather than surfaced.
+func (s *Server) record(r *http.Request, kind, format string, ok bool, bytes int64, started time.Time) {
+	u := auth.UserFrom(r.Context())
+	if u == nil {
+		return
+	}
+	if format == "" {
+		format = defaultFormat()
+	}
+	if err := s.Store.RecordConversion(u.ID, kind, format, ok, bytes,
+		time.Since(started).Milliseconds()); err != nil {
+		log.Printf("record conversion: %v", err)
+	}
 }

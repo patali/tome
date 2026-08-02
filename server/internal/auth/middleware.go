@@ -44,6 +44,9 @@ func RequireUser(st *store.Store, next http.Handler) http.Handler {
 			unauthorized(w)
 			return
 		}
+		// Last-seen is what lets "active users" mean more than "not disabled".
+		// Best-effort, and a single date rather than a request log.
+		st.TouchUser(u.ID)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)))
 	})
 }

@@ -42,6 +42,9 @@ Usage:
                                 create the admin account and print its API key
                                 (--rotate-key: print a NEW key for a lost one)
   tome admin [--server URL] [--key K] <noun> <verb> [flags]
+      stats    show [--per-user]
+      requests list [--all] | invite ID|EMAIL [--ttl 168h] | dismiss ID|EMAIL
+      conversions list [--since 7d] [--user EMAIL|ID] [--limit 50]
       invites  create [--email HINT] [--ttl 168h] [--send] | list | delete CODE
       users    list | disable ID | enable ID | rotate-key ID
       settings get | set [--resend-api-key K] [--resend-from ADDR]
