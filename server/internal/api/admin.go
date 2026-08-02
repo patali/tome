@@ -107,9 +107,10 @@ To join:
 2. In the extension's settings, set the server URL to %s and redeem the code
    above with your email and your Kindle address (yourname@kindle.com).
 
-3. Important: add %s to your Amazon "Approved Personal Document E-mail List"
-   (amazon.com -> Manage Your Content and Devices -> Preferences -> Personal
-   Document Settings), or Amazon accepts the deliveries and discards them.
+3. Sending to a Kindle? Add %s to your Amazon "Approved Personal Document
+   E-mail List" (amazon.com -> Manage Your Content and Devices -> Preferences
+   -> Personal Document Settings), or Amazon accepts the deliveries and
+   discards them. Delivering to an ordinary mailbox instead? Skip this.
 
 The code is single-use and expires — redeem it soon.
 `, code, base, base, from)
@@ -190,7 +191,7 @@ func inviteEmailHTML(code, from, base string) template.HTML {
 		rule,
 		step(1, fmt.Sprintf(`Install the extension — the steps are at <a href="%s/install" style="color:%s;">%s/install</a>.`, base, accent, base)),
 		step(2, fmt.Sprintf(`In the extension's settings set the server to <b>%s</b>, then redeem the code above with your email and your Kindle address.`, base)),
-		step(3, fmt.Sprintf(`Add <b>%s</b> to your Amazon <b>Approved Personal Document E-mail List</b>. Skip this and Amazon accepts the deliveries and quietly discards them.`, template.HTMLEscapeString(from))),
+		step(3, fmt.Sprintf(`Sending to a Kindle? Add <b>%s</b> to your Amazon <b>Approved Personal Document E-mail List</b> — skip it and Amazon accepts the deliveries and quietly discards them. Delivering to an ordinary mailbox instead? This step does not apply.`, template.HTMLEscapeString(from))),
 		base, accent, paper, serif,
 		rule, serif, muted))
 }

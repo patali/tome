@@ -290,8 +290,9 @@ var landingTmpl = template.Must(template.New("landing").Parse(`<!DOCTYPE html>
         <span>Rendered through a real browser at your device's exact page size,
         fonts embedded. Not a reflowed HTML dump.</span></li>
       <li><b>Straight to the device</b>
-        <span>Delivered to your Kindle address. Or keep the PDF — the preview
-        is print-ready.</span></li>
+        <span>Delivered to your Kindle address — or any address you like, so a
+        rule in your mail or something like Zapier can take it from there. Or
+        keep the PDF; the preview is print-ready.</span></li>
       <li><b>Nothing kept</b>
         <span>Articles are rendered and delivered, never stored. The server
         holds your email, your Kindle address, and a hash of your key.</span></li>
