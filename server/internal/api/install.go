@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,6 +40,41 @@ func baseURL(r *http.Request) string {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host
+}
+
+// emailBase is baseURL for links that will be read somewhere else entirely,
+// and it reports whether that address is one a stranger could actually use.
+//
+// baseURL is derived from the request Host, which is right for a page being
+// served — the reader is, by definition, at that address. It is wrong for an
+// email: the admin CLI reaches the server on 127.0.0.1, so an invite triggered
+// from it would carry loopback links to someone who cannot resolve them, and
+// the failure is invisible until a recipient says the link is broken.
+//
+// TOME_BASE_URL is the fix and always wins. Without it, a request arriving on
+// a loopback or private address is reported as unusable so the caller can say
+// so instead of sending confidently.
+func emailBase(r *http.Request) (base, warning string) {
+	base = baseURL(r)
+	if publicBaseURL != "" {
+		return base, ""
+	}
+	host := r.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	if host == "localhost" || host == "" {
+		return base, unusableBase(base)
+	}
+	if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified()) {
+		return base, unusableBase(base)
+	}
+	return base, ""
+}
+
+func unusableBase(base string) string {
+	return "links in this email point at " + base +
+		", which the recipient cannot reach — set TOME_BASE_URL to the server's public address"
 }
 
 // firstValue takes the leftmost entry of a comma-separated header — chained

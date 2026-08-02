@@ -68,10 +68,11 @@ func (s *Server) adminCreateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	emailed := false
+	base, baseWarning := emailBase(r)
 	if req.Send {
 		if err := rc.SendHTML(req.EmailHint, "You're invited to Tome",
-			inviteEmailText(inv.Code, rc.From, baseURL(r)),
-			string(inviteEmailHTML(inv.Code, rc.From, baseURL(r)))); err != nil {
+			inviteEmailText(inv.Code, rc.From, base),
+			string(inviteEmailHTML(inv.Code, rc.From, base))); err != nil {
 			// The invite exists either way; report the send failure alongside it.
 			writeJSON(w, http.StatusOK, map[string]any{
 				"code": inv.Code, "emailHint": inv.EmailHint, "expiresAt": inv.ExpiresAt,
@@ -81,9 +82,13 @@ func (s *Server) adminCreateInvite(w http.ResponseWriter, r *http.Request) {
 		}
 		emailed = true
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	out := map[string]any{
 		"code": inv.Code, "emailHint": inv.EmailHint, "expiresAt": inv.ExpiresAt, "emailed": emailed,
-	})
+	}
+	if emailed && baseWarning != "" {
+		out["warning"] = baseWarning
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // inviteEmailText is the plain-text part. Not a fallback afterthought: some

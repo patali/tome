@@ -144,9 +144,10 @@ func (s *Server) adminInviteRequest(w http.ResponseWriter, r *http.Request) {
 		errJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	base, baseWarning := emailBase(r)
 	if err := rc.SendHTML(req.Email, "You're invited to Tome",
-		inviteEmailText(inv.Code, rc.From, baseURL(r)),
-		string(inviteEmailHTML(inv.Code, rc.From, baseURL(r)))); err != nil {
+		inviteEmailText(inv.Code, rc.From, base),
+		string(inviteEmailHTML(inv.Code, rc.From, base))); err != nil {
 		// The invite exists; leave the request pending so a retry is possible
 		// rather than marking it done on a send that never landed.
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -159,9 +160,13 @@ func (s *Server) adminInviteRequest(w http.ResponseWriter, r *http.Request) {
 		errJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	out := map[string]any{
 		"code": inv.Code, "email": req.Email, "expiresAt": inv.ExpiresAt, "emailed": true,
-	})
+	}
+	if baseWarning != "" {
+		out["warning"] = baseWarning
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) adminDismissRequest(w http.ResponseWriter, r *http.Request) {

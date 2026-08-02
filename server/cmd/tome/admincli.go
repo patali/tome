@@ -46,6 +46,7 @@ func runAdminCLI(args []string) {
 		if *send {
 			if out["emailed"] == true {
 				fmt.Printf("emailed to %s\n", *hint)
+				warnBase(out)
 			} else {
 				fmt.Printf("NOT emailed: %v\n", out["emailError"])
 			}
@@ -196,6 +197,7 @@ func runAdminCLI(args []string) {
 			map[string]any{"ttlHours": int(ttl.Hours())})
 		if out["emailed"] == true {
 			fmt.Printf("invited %v (code %v, expires %v)\n", out["email"], out["code"], out["expiresAt"])
+			warnBase(out)
 		} else {
 			// The code exists, so print it: the operator can still pass it on
 			// by hand, and the request stays pending for a retry.
@@ -315,4 +317,13 @@ func humanMS(ms int64) string {
 		return fmt.Sprintf("%dms", ms)
 	}
 	return fmt.Sprintf("%.1fs", float64(ms)/1000)
+}
+
+// warnBase surfaces a server-side warning that the links just emailed are
+// unreachable. Printed after the success line rather than instead of it: the
+// invite really was sent, and the operator needs to know to resend.
+func warnBase(out map[string]any) {
+	if w, _ := out["warning"].(string); w != "" {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+	}
 }
