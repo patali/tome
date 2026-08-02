@@ -99,14 +99,17 @@ func (s *Server) handleInviteRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Deliberately no IP. It was here for abuse triage, but Turnstile and the
+	// rate limiter already do that job before this point — so recording it
+	// would mean keeping an identifier about someone who is not yet a user,
+	// in a mailbox, for no decision it would actually inform.
 	text := fmt.Sprintf(""+
 		"Someone asked for a Tome invite.\n\n"+
 		"  email: %s\n"+
-		"  when:  %s\n"+
-		"  ip:    %s\n\n"+
+		"  when:  %s\n\n"+
 		"Create one with:\n"+
 		"  tome admin invites create --email %s --send\n",
-		email, time.Now().UTC().Format(time.RFC3339), auth.ClientIP(r), email)
+		email, time.Now().UTC().Format(time.RFC3339), email)
 
 	// The submitted address goes in the subject, never the To/Reply-To: a
 	// header built from unverified input is how a form becomes a spam relay.

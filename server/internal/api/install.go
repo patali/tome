@@ -179,6 +179,16 @@ func zipDir(dir string) ([]byte, error) {
 // source is ours and markdown-only.
 var privacyMD = goldmark.New(goldmark.WithExtensions(extension.Table))
 
+// privacyContact (TOME_PRIVACY_CONTACT) identifies this instance's operator —
+// who is the data controller for everything it holds.
+//
+// It is configuration rather than a line in PRIVACY.md because that file ships
+// with the project and is served by every deployment: an address written into
+// it would tell other operators' users to contact someone with no access to
+// their data. The policy therefore describes the controller generically and
+// defers to this.
+var privacyContact = strings.TrimSpace(os.Getenv("TOME_PRIVACY_CONTACT"))
+
 // handlePrivacy renders PRIVACY.md.
 //
 // The policy is rendered rather than restated: PRIVACY.md remains the single
@@ -208,9 +218,10 @@ func (s *Server) handlePrivacy(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = privacyTmpl.Execute(w, struct {
-		Base string
-		Body template.HTML
-	}{Base: baseURL(r), Body: template.HTML(body.String())})
+		Base    string
+		Body    template.HTML
+		Contact string
+	}{Base: baseURL(r), Body: template.HTML(body.String()), Contact: privacyContact})
 }
 
 func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
@@ -617,11 +628,16 @@ var privacyTmpl = template.Must(template.New("privacy").Parse(`<!DOCTYPE html>
   .md table:has(td:nth-child(3)) td:nth-child(2) code { background: none; padding: 0; color: inherit; }
   .md table:has(td:nth-child(3)) td:nth-child(3) { grid-column: 1 / -1; }
 
-  /* The 2-column one is a definition list: term left, reason right. */
+  /* Two-column tables are definition lists: term left, reason right. */
   .md table:not(:has(td:nth-child(3))) tr {
-    display: grid; grid-template-columns: 180px 1fr; gap: 20px; padding: 12px 0;
+    display: grid; grid-template-columns: 200px 1fr; gap: 20px; padding: 12px 0;
     align-items: baseline; }
   .md table:not(:has(td:nth-child(3))) td:first-child {
+    font-weight: 600; font-size: 15.5px; color: var(--ink); }
+  /* Only when the term is an identifier — the permissions table backticks
+     them, the legal-basis and retention tables are prose. Setting a sentence
+     in 13px monospace reads as a code sample, which it is not. */
+  .md table:not(:has(td:nth-child(3))) td:first-child:has(code) {
     font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--mono);
     font-weight: 400; }
   .md table:not(:has(td:nth-child(3))) td:first-child code { background: none; padding: 0; color: inherit; }
@@ -630,6 +646,14 @@ var privacyTmpl = template.Must(template.New("privacy").Parse(`<!DOCTYPE html>
   @media (max-width: 560px) {
     .md table:not(:has(td:nth-child(3))) tr { grid-template-columns: 1fr; gap: 4px; }
   }
+
+  /* Instance-specific controller details, appended after the policy rather
+     than written into it — see privacyContact. */
+  .operator { margin: 52px 0 0; background: var(--tile);
+    border-left: 4px solid var(--accent); border-radius: 4px; padding: 24px 28px; }
+  .operator .label { font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+  .operator p { margin: 0; font-size: 16px; line-height: 1.65; color: var(--body); }
 
   footer.site { border-top: 1px solid var(--rule); }
   footer.site .inner { max-width: 680px; margin: 0 auto; padding: 24px 40px;
@@ -653,7 +677,17 @@ var privacyTmpl = template.Must(template.New("privacy").Parse(`<!DOCTYPE html>
     </nav>
   </header>
 
-  <main class="md">{{.Body}}</main>
+  <main class="md">{{.Body}}
+    <div class="operator">
+      <div class="label">This server</div>
+      {{if .Contact}}<p>This instance is run by <strong>{{.Contact}}</strong>, who is the
+      data controller for everything it holds. Use that address for access,
+      correction, erasure, or any other question about your data here.</p>
+      {{else}}<p>Whoever runs this instance is the data controller for everything it
+      holds, but they haven't published a contact address here. Ask whoever
+      gave you your invite code.</p>{{end}}
+    </div>
+  </main>
 </div>
 
 <footer class="site">
