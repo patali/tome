@@ -1,17 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Tome",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Turn the article you're reading into a clean, e-ink-optimized document and send it to your Kindle.",
   "permissions": [
     "scripting",
     "storage",
     "activeTab",
     "alarms"
-  ],
-  "host_permissions": [
-    "http://localhost/*",
-    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js"
