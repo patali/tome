@@ -62,17 +62,20 @@ document.getElementById("save-server").addEventListener("click", function () {
     return;
   }
   var normalized = u.origin + u.pathname.replace(/\/+$/, "");
-  // Match patterns must not contain a port (they match every port on the
-  // host), so request the portless origin. A missing grant isn't fatal —
-  // the Tome server answers with permissive CORS — so always save.
-  var pattern = u.protocol + "//" + u.hostname + "/*";
-  chrome.permissions.request({ origins: [pattern] }, function (granted) {
-    void chrome.runtime.lastError;
-    chrome.storage.sync.set({ serverUrl: normalized }, function () {
-      urlInput.value = normalized;
-      note(granted ? "Server saved." : "Server saved (no host permission — using server CORS).", "ok");
-      refreshStatus();
-    });
+  // No host permission is requested for the server.
+  //
+  // A Tome server answers every request with permissive CORS, and in MV3 an
+  // extension's fetches are subject to ordinary CORS — host permissions exist
+  // to bypass it. So the grant was never doing any work here; the code already
+  // treated a refusal as success and fell through to the same place.
+  //
+  // Declaring the wildcard needed to ask for an arbitrary host also put the
+  // extension into the Chrome Web Store's in-depth review queue, which is a
+  // real cost for a permission that changed nothing.
+  chrome.storage.sync.set({ serverUrl: normalized }, function () {
+    urlInput.value = normalized;
+    note("Server saved.", "ok");
+    refreshStatus();
   });
 });
 
