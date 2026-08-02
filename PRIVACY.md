@@ -134,7 +134,10 @@ emailing a file to a Kindle.
 | `storage` | Keep the settings and history described above. |
 | `alarms` | Check every six hours whether your server has a newer extension version. |
 | `host_permissions` (localhost) | Reach a Tome server on your own machine. |
-| Optional host permissions | Reach a Tome server elsewhere. Requested **at the moment you enter its address**, and only for that host. |
+
+A Tome server elsewhere needs **no permission at all**. The extension reaches
+it as an ordinary cross-origin request, which the server allows; nothing grants
+the extension access to any other site.
 
 ## If you are in the EU or UK
 
