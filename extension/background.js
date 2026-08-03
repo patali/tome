@@ -219,9 +219,15 @@ async function setApiKey(key) {
 
 /* --- Update check -------------------------------------------------------
  *
- * This is a "Load unpacked" install, so the browser will never update it. The
- * server reports the version of the extension it hands out at /status; if that
- * is newer than ours, we raise a badge and the popup explains how to update.
+ * Only manual ("Load unpacked") installs need this. The browser never updates
+ * one, so the server reports the version of the extension it hands out at
+ * /status; if that is newer than ours, we raise a badge and the popup explains
+ * how to update.
+ *
+ * A store install updates itself, so there is nothing to tell its user and no
+ * action they could take — the badge and the popup notice stay off. Settings →
+ * Version still shows both numbers, because being ahead or behind the server is
+ * worth being able to look up.
  *
  * Deliberately quiet: a badge dot and one line in the popup, no notifications
  * and no interruption of whatever the user was doing.
@@ -229,6 +235,27 @@ async function setApiKey(key) {
 
 const UPDATE_ALARM = "tome-update-check";
 const UPDATE_PERIOD_MIN = 360; // 6h — a manual-install update is never urgent
+
+// The published listing. An unpacked install derives its ID from the pinned
+// manifest key instead, so the two never collide.
+const STORE_EXTENSION_ID = "mfnoejpbojcndlepcbkidppdinbbohmi";
+
+// Which install this is. chrome.management.getSelf() would answer directly, but
+// only the "management" permission makes that API available for certain — and
+// declaring it would put Tome back in the Chrome Web Store's in-depth review
+// queue, the same cost that dropping the host permissions was avoiding. Both
+// checks below need no permission and no API beyond runtime:
+//
+//   - our own listing has a known, fixed ID;
+//   - any other store install (a fork's listing) carries the update_url Chrome
+//     injects into a store manifest.
+//
+// Anything else is loaded from a folder — this repo's extension/, or the zip
+// the server hands out — and nothing will ever update it.
+function isUnpacked() {
+  if (chrome.runtime.id === STORE_EXTENSION_ID) return false;
+  return !chrome.runtime.getManifest().update_url;
+}
 
 function installedVersion() {
   try {
@@ -258,13 +285,16 @@ async function updateState() {
   });
   const installed = installedVersion();
   const available = !!latestVersion && compareVersions(latestVersion, installed) > 0;
+  const unpacked = isUnpacked();
   return {
     installed,
     latestVersion,
     lastCheckedAt,
+    unpacked,
     updateAvailable: available,
-    // Dismissal is per-version: a newer release surfaces again.
-    showUpdate: available && compareVersions(latestVersion, dismissedVersion) > 0
+    // Dismissal is per-version: a newer release surfaces again. Store installs
+    // never surface it at all — Chrome is already handling it.
+    showUpdate: available && unpacked && compareVersions(latestVersion, dismissedVersion) > 0
   };
 }
 

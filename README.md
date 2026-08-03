@@ -25,8 +25,11 @@ Browser (you, logged in)          Local Go server (:8080)
 
 ## Quick start
 
-1. **Load the extension** — `arc://extensions` (or `chrome://extensions`) →
-   Developer mode → *Load unpacked* → the [`extension/`](extension/) folder.
+1. **Install the extension** — [Tome on the Chrome Web
+   Store](https://chromewebstore.google.com/detail/tome/mfnoejpbojcndlepcbkidppdinbbohmi)
+   (Arc, Edge and Brave install from the same listing). Hacking on it? Load
+   [`extension/`](extension/) unpacked instead — `chrome://extensions` →
+   Developer mode → *Load unpacked*.
 2. **Run the server** — `cd server && go run ./cmd/tome`
    (needs Go and any Chrome-family browser installed), then bootstrap your
    admin account: `go run ./cmd/tome init-admin --email you@example.com

@@ -21,8 +21,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 		"authRequired":  true,
 		"defaultFormat": defaultFormat(),
 		"pdfAvailable":  pdfgen.Available(),
-		// The extension can't self-update (it's a "Load unpacked" install), so
-		// it compares this against its own manifest and tells the user.
+		// For the manual ("Load unpacked") install, which nothing updates: it
+		// compares this against its own manifest and tells the user. A store
+		// install reads it too, but only to show in settings — Chrome is
+		// already keeping that one current.
 		"extensionVersion": s.extensionVersion(),
 	})
 }
