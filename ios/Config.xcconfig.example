@@ -1,0 +1,28 @@
+// Copy to Config.xcconfig and fill in. That file is gitignored — it holds your
+// API key, which is a bearer credential for your Tome account.
+//
+//     cp Config.xcconfig.example Config.xcconfig
+//
+// These values are compiled into the app and the share extension. That is the
+// price of a free Apple ID: without App Groups the extension can't read the
+// app's settings, so its configuration has to be baked in at build time. It
+// also means this build must not be handed to anyone else — your key is inside
+// the binary. See ios/Shared/TomeConfig.swift.
+
+// Your Tome server, no trailing slash and no scheme separator escaping needed.
+// NOTE: xcconfig treats "//" as a comment, so the scheme has to be written with
+// the $() indirection below — this is a known xcconfig quirk, not a typo.
+TOME_SCHEME = https:/$()/
+TOME_SERVER_URL = $(TOME_SCHEME)tome.pixelsyrup.com
+
+// From `tome init-admin` or your invite redemption. Starts with "tome_".
+TOME_API_KEY =
+
+// Reverse-DNS bundle identifier for the app; the share extension gets
+// "<this>.share" automatically. Free Apple IDs are capped at 10 new App IDs per
+// 7 days, so pick one and stick with it.
+TOME_BUNDLE_ID = com.pixelsyrup.tome
+
+// Your Apple Developer team ID. With a personal (free) Apple ID, leave this
+// empty and pick the team in Xcode's Signing & Capabilities tab instead.
+TOME_DEVELOPMENT_TEAM =

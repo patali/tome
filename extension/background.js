@@ -60,6 +60,13 @@ const EXTRACTOR_FILES = [
 // Runs IN the page's isolated world, after EXTRACTOR_FILES are injected.
 // Picks the highest-priority extractor that matches; an extractor returning
 // null passes the page to the next one.
+//
+// The markers below are load-bearing: ios/Scripts/build-extraction-js.sh lifts
+// everything between them into the iOS extraction bundle, so the app and the
+// extension dispatch identically. Keep this a standalone function with no
+// closure references — chrome.scripting.executeScript serializes it, and the
+// iOS bundle concatenates it at top level.
+/* #tome:dispatch-start */
 function runExtractors() {
   try {
     var registry = self.__TOME_EXTRACTORS || {};
@@ -86,6 +93,7 @@ function runExtractors() {
     return { error: String((e && e.message) || e) };
   }
 }
+/* #tome:dispatch-end */
 
 // Inject the extractor modules, then dispatch. Returns the article or {error}.
 async function extractFromTab(tab) {
