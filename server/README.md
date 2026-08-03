@@ -54,14 +54,20 @@ tome admin invites create                                     # …or just print
 They install the extension, set the server URL in the popup, and redeem the
 code with their email + `@kindle.com` address — that's the whole signup.
 
-**The server distributes the extension itself**: point invitees at
-`https://your-server/` (the same page is at `/install`) — a step-by-step
-install and Kindle-setup guide with a download
-button for `GET /extension.zip` (bundled into the image at build time; when run
-from source, the `extension/` dir is zipped on the fly). Invite emails link to
-it automatically. Chrome blocks off-store one-click installs, so this is the
-"Load unpacked" flow — the manifest pins a key, giving every install the same
-extension ID.
+**Point invitees at `https://your-server/`** (the same page is at `/install`) —
+a step-by-step install and Kindle-setup guide, which invite emails link to
+automatically. It opens with the [Chrome Web Store
+listing](https://chromewebstore.google.com/detail/tome/mfnoejpbojcndlepcbkidppdinbbohmi):
+the store build talks to whichever server the user configures, so one listing
+serves every deployment and Chrome keeps it updated.
+
+**The server still distributes the extension itself**, as a fallback at the
+bottom of that page: `GET /extension.zip` (bundled into the image at build time;
+when run from source, the `extension/` dir is zipped on the fly). Chrome blocks
+off-store one-click installs, so that path is the "Load unpacked" flow — the
+manifest pins a key, giving every unpacked install the same extension ID. The
+store build has that key stripped and so is a *different* extension with its own
+settings; the install page tells users to pick one.
 
 > **Everyone** (you included) must add the `--resend-from` address to their
 > Amazon **Approved Personal Document E-mail List** (amazon.com → Content &
@@ -112,7 +118,7 @@ Auth is `Authorization: Bearer tome_…`. Errors are always `{ "error": "…" }`
 |---|---|---|---|
 | `GET` | `/status` | — | `{ ok, service, version, authRequired, defaultFormat, pdfAvailable, extensionVersion }` — `extensionVersion` is read from the bundled extension's manifest, so installs can tell they've fallen behind |
 | `GET` | `/` , `/install` | — | HTML install + Kindle-setup guide for invitees |
-| `GET` | `/extension.zip` | — | the browser extension, for manual install |
+| `GET` | `/extension.zip` | — | the browser extension, for manual install (the store listing is the primary path) |
 | `POST` | `/auth/accept-invite` | — (rate-limited) | `{code, email, kindleEmail}` → `{apiKey, …}` — key shown once |
 | `POST` | `/convert` | user | article JSON → rendered file (`?format=pdf\|epub`) |
 | `POST` | `/send-to-kindle` | user | article JSON → Resend delivery to the user's Kindle; 502 if Resend unset |

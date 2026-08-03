@@ -74,8 +74,9 @@ send({ type: "ping" }).then(function (s) {
 
 /* --- Update notice ------------------------------------------------------ */
 
-/* The extension is installed unpacked, so nothing updates it automatically.
-   Surface it once, quietly, with a way to say "not now". */
+/* Only fires for a manual install, where nothing updates the extension
+   automatically — background.js decides. Surface it once, quietly, with a way
+   to say "not now". */
 
 var updateEl = document.getElementById("update");
 var updateText = document.getElementById("update-text");

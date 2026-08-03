@@ -228,13 +228,22 @@ chrome.storage.sync.get({ readingFont: DEFAULT_FONT }, function (v) {
 /* --- Version ------------------------------------------------------------ */
 
 /* Unpacked installs never auto-update, so the only honest thing to do is show
-   both numbers and point at the instructions. */
+   both numbers and point at the instructions. A store install is being updated
+   for the user, so it gets the numbers without the busywork — a server that has
+   moved ahead of the store build is a wait, not a task. */
 
 var versionLine = document.getElementById("version-line");
 var updateGuide = document.getElementById("update-guide");
 
 function renderVersion(st) {
-  updateGuide.hidden = !st.updateAvailable;
+  updateGuide.hidden = !st.updateAvailable || !st.unpacked;
+  if (!st.unpacked) {
+    versionLine.className = "muted";
+    versionLine.textContent = "Installed " + st.installed + (st.updateAvailable
+      ? " · this server ships " + st.latestVersion + "; Chrome updates Tome automatically"
+      : " · Chrome keeps this up to date");
+    return;
+  }
   if (st.updateAvailable) {
     versionLine.className = "";
     versionLine.textContent =
