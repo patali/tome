@@ -225,6 +225,16 @@ var privacyMD = goldmark.New(goldmark.WithExtensions(extension.Table))
 // defers to this.
 var privacyContact = strings.TrimSpace(os.Getenv("TOME_PRIVACY_CONTACT"))
 
+// storeURL is the published Chrome Web Store listing, which every deployment
+// points its invitees at: the store build talks to whichever server the user
+// configures, so one listing serves all of them.
+//
+// That build is a *different extension* from the one /extension.zip hands out.
+// pack-store.sh drops the pinned manifest key (the store rejects it and assigns
+// an identity of its own), and chrome.storage is scoped per extension ID — so
+// the two installs never share a sign-in. The install page says so out loud.
+const storeURL = "https://chromewebstore.google.com/detail/tome/mfnoejpbojcndlepcbkidppdinbbohmi"
+
 // handlePrivacy renders PRIVACY.md.
 //
 // The policy is rendered rather than restated: PRIVACY.md remains the single
@@ -264,9 +274,10 @@ func (s *Server) handleInstallPage(w http.ResponseWriter, r *http.Request) {
 	set, _ := s.Store.GetSettings()
 	data := struct {
 		Base       string
+		StoreURL   string
 		Sender     string
 		SenderHTML template.HTML
-	}{Base: baseURL(r), Sender: set.ResendFrom, SenderHTML: senderHTML(set.ResendFrom)}
+	}{Base: baseURL(r), StoreURL: storeURL, Sender: set.ResendFrom, SenderHTML: senderHTML(set.ResendFrom)}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = installTmpl.Execute(w, data)
 }
@@ -368,6 +379,11 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
     background: var(--accent); color: var(--paper); padding: 15px 28px;
     border-radius: 9px; font-size: 17px; margin-top: 34px; }
   .download:hover { background: #a54019; color: var(--paper); text-decoration: none; }
+  /* The zip lives in the manual-install coda now, where it should read as the
+     alternative it is rather than compete with the store button up top. */
+  .download.quiet { background: transparent; color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent); }
+  .download.quiet:hover { background: var(--tile); color: #9a3c17; }
 
   /* ── steps ────────────────────────────────────────────────────────── */
   .step { display: flex; gap: 34px; padding: 52px 0; border-bottom: 1px solid var(--rule); }
@@ -414,6 +430,15 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
   .callout p { margin: 0; font-size: 18px; line-height: 1.62; color: var(--body);
     text-wrap: pretty; }
 
+  /* A coda rather than a fifth step: same headline weight as .step, no numeral,
+     so the four-step spine stays four steps long. */
+  .alt { margin-top: 48px; padding-top: 44px; border-top: 1px solid var(--rule); }
+  .alt h2 { font-weight: 700; font-size: 28px; line-height: 1.15;
+    letter-spacing: -0.01em; margin: 0; }
+  .alt .prose { margin-top: 20px; font-size: 18px; line-height: 1.62; color: var(--body); }
+  .alt .download { margin-top: 26px; }
+  @media (max-width: 560px) { .alt h2 { font-size: 23px; } .alt .prose { font-size: 17px; } }
+
   footer.site { border-top: 1px solid var(--rule); background: #f6f0e3; margin-top: 96px; }
   footer.site .inner { max-width: 820px; margin: 0 auto; padding: 44px 40px;
     display: flex; justify-content: space-between; align-items: flex-start;
@@ -451,7 +476,7 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
     <p class="lede">Tome turns the article you're reading into a beautifully
     typeset document on your Kindle. You'll need an <strong>invite code</strong>
     from the person running this server.</p>
-    <a class="download" href="{{.Base}}/extension.zip"><span>↓</span> Download the extension</a>
+    <a class="download" href="{{.StoreURL}}" target="_blank" rel="noopener">Add to Chrome</a>
   </div>
 
   <div class="rule"></div>
@@ -463,16 +488,15 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
         <h2>Install the extension</h2>
         <div class="prose">
           <ol>
-            <li>Unzip the download — you get a <code>tome-extension</code> folder.
-                Move it somewhere permanent (not Downloads — the browser loads it
-                from this location from now on).</li>
-            <li>Open <code>chrome://extensions</code> (Arc: <code>arc://extensions</code>,
-                Edge: <code>edge://extensions</code>).</li>
-            <li>Turn on <strong>Developer mode</strong> (toggle in the top-right corner).</li>
-            <li>Click <strong>Load unpacked</strong> and select the
-                <code>tome-extension</code> folder.</li>
+            <li>Open the <a href="{{.StoreURL}}" target="_blank" rel="noopener">Tome
+                listing on the Chrome Web Store</a> and click
+                <strong>Add to Chrome</strong>, then <strong>Add extension</strong>.</li>
             <li>Pin Tome to your toolbar (puzzle-piece icon → 📌).</li>
           </ol>
+          <p class="note" style="margin-top:16px">Arc, Edge and Brave install from
+          this same listing — they all run Chrome extensions. Prefer not to use the
+          store? There's a <a href="#manual">manual install</a> at the bottom of
+          this page.</p>
         </div>
       </div>
     </div>
@@ -542,10 +566,8 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
           <strong>Send to Kindle</strong>. That's it — it lands on your Kindle in a
           minute or two. <strong>Open preview</strong> gives you a print-ready view
           (<kbd>⌘P</kbd> → Save as PDF) if you'd rather keep the file.</p>
-          <p class="note"><strong>Updating:</strong> download the zip again, replace
-          the folder's contents, and press the reload icon on the Tome card in
-          <code>chrome://extensions</code>. Your sign-in is kept. Tome tells you when
-          this server has a newer version than the copy you installed.</p>
+          <p class="note"><strong>Updating:</strong> nothing to do — Chrome keeps
+          Tome up to date on its own, and your sign-in comes through untouched.</p>
         </div>
       </div>
     </div>
@@ -556,6 +578,37 @@ var installTmpl = template.Must(template.New("install").Parse(`<!DOCTYPE html>
       throws it away. Tome reports the send as successful, and nothing ever arrives
       on the device.</p>
     </div>
+
+    <section class="alt" id="manual">
+      <h2>Manual install</h2>
+      <div class="prose">
+        <p>If you'd rather not install from the store, this server hands out the
+        same extension as a zip you load yourself. Steps 2 to 4 above are
+        unchanged — only the install differs.</p>
+        <ol>
+          <li>Unzip the download — you get a <code>tome-extension</code> folder.
+              Move it somewhere permanent (not Downloads — the browser loads it
+              from this location from now on).</li>
+          <li>Open <code>chrome://extensions</code> (Arc: <code>arc://extensions</code>,
+              Edge: <code>edge://extensions</code>).</li>
+          <li>Turn on <strong>Developer mode</strong> (toggle in the top-right corner).</li>
+          <li>Click <strong>Load unpacked</strong> and select the
+              <code>tome-extension</code> folder.</li>
+          <li>Pin Tome to your toolbar (puzzle-piece icon → 📌).</li>
+        </ol>
+        <a class="download quiet" href="{{.Base}}/extension.zip"><span>↓</span> Download the extension</a>
+        <p class="note" style="margin-top:26px"><strong>Updating:</strong> a manual
+        install never updates itself. Download the zip again, replace the folder's
+        contents, and press the reload icon on the Tome card in
+        <code>chrome://extensions</code>. Your sign-in is kept, and Tome tells you
+        when this server has a newer version than the copy you installed.</p>
+        <p class="note"><strong>Pick one or the other.</strong> The store copy and
+        this one are separate extensions as far as the browser is concerned, each
+        with its own settings and sign-in — running both just gives you two Tome
+        buttons. If you're switching to the store version, install it, sign in
+        again, and remove the manual copy.</p>
+      </div>
+    </section>
   </main>
 </div>
 

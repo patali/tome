@@ -11,20 +11,31 @@ which is not subject to the page's Content-Security-Policy. So there's nothing
 to inline or work around — it just runs. (An earlier bookmarklet approach died
 on exactly that CSP wall, and Arc has no bookmarks bar anyway.)
 
-> **Invitees:** the easiest path is your server's install page —
-> `http://your-server/install` — which serves this extension as a zip with
-> step-by-step instructions. The steps below are the from-source equivalent.
-> The manifest pins a public key, so every install shares one extension ID.
+## Install
 
-## Install in Arc (unpacked)
+**From the Chrome Web Store** —
+[Tome](https://chromewebstore.google.com/detail/tome/mfnoejpbojcndlepcbkidppdinbbohmi).
+Arc, Edge and Brave all install from that listing. It updates itself, and it
+talks to whichever server you point it at, so one listing serves every
+deployment.
 
-1. Open a new tab and go to **`arc://extensions`**
-   (Chrome users: `chrome://extensions`).
-2. Turn on **Developer mode** (top-right toggle).
-3. Click **Load unpacked** and select this **`extension/`** folder.
-4. The **Tome** extension appears. Pin it so the button is visible:
-   click the puzzle-piece / extensions icon in the toolbar and pin Tome
-   (in Arc, the extensions live to the right of the address bar).
+> **Invitees:** you also need an invite code and a server URL. Your server's
+> install page — `http://your-server/install` — walks through both, plus the
+> Amazon approved-sender step that everyone forgets. It also offers this
+> extension as a zip, for anyone who'd rather not use the store.
+
+**From source (development)** — open **`chrome://extensions`** (Arc:
+`arc://extensions`), turn on **Developer mode**, click **Load unpacked** and
+select this **`extension/`** folder. Pin Tome from the puzzle-piece icon (in
+Arc, extensions live to the right of the address bar).
+
+The manifest pins a public key, so every unpacked install — from this folder or
+from the server's zip — shares one extension ID and keeps its settings across
+reloads. `pack-store.sh` strips that key for the store upload, because the store
+rejects a pinned one and assigns an identity itself. The upshot: **the store
+build is a different extension from an unpacked one**, with its own
+`chrome.storage`. Running both gives you two Tome buttons and two sign-ins;
+switching from one to the other means signing in again.
 
 ## Use
 
@@ -77,8 +88,9 @@ Sign-in (accounts are required — the server is invite-only):
    Amazon approved-senders list.
 
 The API key is stored in `chrome.storage.local` (never synced); the server URL
-and button toggles sync via `chrome.storage.sync`. Non-localhost server origins
-trigger a one-time browser permission prompt (`optional_host_permissions`).
+and button toggles sync via `chrome.storage.sync`. No host permission is asked
+for at any point — a Tome server answers with permissive CORS, which is all an
+MV3 fetch needs.
 
 ## Versioning and updates
 
@@ -87,18 +99,32 @@ the server reads it out of the bundle it serves and reports it at `/status`.
 
 Chrome's format is 1–4 dot-separated integers (`0.3.0`), with no `-beta`
 suffixes; we read it as semver otherwise. Bump it in the same commit as the
-change, then rebuild and push the image — the server hands out whatever
-`extension/` was baked in, so an unbumped manifest silently tells every user
-they're up to date.
+change, then ship both channels:
 
-Because this is a **Load unpacked** install, the browser will never update it.
-Instead the extension compares its own version against `/status` on popup open
-and every 6 hours, and when the server is ahead it shows a badge dot plus one
-dismissible line in the popup (dismissal lasts until a newer version appears).
-Settings → **Version** shows both numbers and a **Check for updates** button.
+- **Store** — `./pack-store.sh` builds `tome-extension-store.zip` (key stripped,
+  `manifest.json` at the archive root); upload it to the Chrome Web Store.
+- **Server** — rebuild and push the image; the server hands out whatever
+  `extension/` was baked in, so an unbumped manifest silently tells every manual
+  install they're up to date.
 
-Users update by downloading the zip again, replacing the folder's contents,
-and hitting reload on the extension card. Sign-in survives.
+Review lag means the two drift: `/status` can legitimately report a version the
+store hasn't published yet. That's expected, and nobody needs to act on it.
+
+**Store installs** update themselves. The extension detects this by its own
+`chrome.runtime.id` (the listing's ID is fixed; an unpacked install's comes from
+the pinned key) or an injected `update_url`, and stays quiet — no badge, no
+popup notice. Settings → **Version** still shows the installed version and what
+the server ships, since being behind is worth being able to look up.
+
+> If the store listing is ever republished under a new ID, update
+> `STORE_EXTENSION_ID` in `background.js` to match.
+
+**Manual installs** are never updated by the browser, so the extension compares
+its own version against `/status` on popup open and every 6 hours; when the
+server is ahead it shows a badge dot plus one dismissible line in the popup
+(dismissal lasts until a newer version appears). Those users update by
+downloading the zip again, replacing the folder's contents, and hitting reload
+on the extension card. Sign-in survives.
 
 ## Files
 
