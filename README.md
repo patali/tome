@@ -75,8 +75,29 @@ endpoint docs, and container caveats in [`server/README.md`](server/README.md).
 - **Six body faces to choose from** — Literata, Source Serif 4, Merriweather,
   Libre Baskerville, Inter, Atkinson Hyperlegible; all picked for e-ink and all
   bundled, so the preview and the PDF agree.
-- **Pluggable extractors** — Readability.js handles pages generally, and a
-  source can add its own extractor when the generic pass falls short (X ships
-  one, reading its `data-testid` landmarks for title, byline, date and body).
+- **Pluggable extractors** — [Readability.js](#third-party-code) handles pages
+  generally, and a source can add its own extractor when the generic pass falls
+  short, reading that site's own markup for title, byline, date and body.
 - **No third-party calls** — every face ships in the package, so previewing
   works offline and nothing tells an outside service what you're reading.
+
+## Third-party code
+
+- **[Readability.js](https://github.com/mozilla/readability)** — Mozilla's
+  article extractor, descended from Arc90's original `readability.js`. It does
+  the heavy lifting behind [`extractors/generic.js`](extension/extractors/generic.js):
+  handed a page, it works out which part of the DOM is the article and returns
+  clean HTML, which is what lets Tome work on an arbitrary blog or news site
+  without anyone writing a rule for it. Tome's own per-site extractors run ahead
+  of it and fall through to it whenever they don't claim a page.
+
+  Vendored unmodified at v0.5.0 in
+  [`extension/lib/Readability.js`](extension/lib/Readability.js). **Apache
+  License 2.0**, © 2010 Arc90 Inc — the licence header is kept intact at the top
+  of the file.
+
+- **Bundled fonts** — seven families under the SIL Open Font License 1.1, each
+  notice kept in full beside the files. See
+  [`extension/fonts/README.md`](extension/fonts/README.md).
+
+Tome itself is MIT licensed — see [LICENSE](LICENSE).
