@@ -2,16 +2,23 @@ package store
 
 import "database/sql"
 
-// Settings are the admin-managed delivery settings. The Resend API key lives
-// only here (never in env, never echoed by the API).
+// Settings are the admin-managed delivery and analytics settings. The API keys
+// live only here (never in env, never echoed by the API).
 type Settings struct {
 	ResendAPIKey string
 	ResendFrom   string
+
+	// PostHog is optional product analytics, off unless an operator sets a key,
+	// and always the operator's own project. See internal/posthog.
+	PostHogAPIKey string
+	PostHogHost   string
 }
 
 const (
-	keyResendAPIKey = "resend_api_key"
-	keyResendFrom   = "resend_from"
+	keyResendAPIKey  = "resend_api_key"
+	keyResendFrom    = "resend_from"
+	keyPostHogAPIKey = "posthog_api_key"
+	keyPostHogHost   = "posthog_host"
 )
 
 func (s *Store) getSetting(key string) (string, error) {
@@ -31,27 +38,41 @@ func (s *Store) setSetting(key, value string) error {
 }
 
 func (s *Store) GetSettings() (Settings, error) {
-	apiKey, err := s.getSetting(keyResendAPIKey)
-	if err != nil {
-		return Settings{}, err
+	var out Settings
+	for _, f := range []struct {
+		key  string
+		dest *string
+	}{
+		{keyResendAPIKey, &out.ResendAPIKey},
+		{keyResendFrom, &out.ResendFrom},
+		{keyPostHogAPIKey, &out.PostHogAPIKey},
+		{keyPostHogHost, &out.PostHogHost},
+	} {
+		v, err := s.getSetting(f.key)
+		if err != nil {
+			return Settings{}, err
+		}
+		*f.dest = v
 	}
-	from, err := s.getSetting(keyResendFrom)
-	if err != nil {
-		return Settings{}, err
-	}
-	return Settings{ResendAPIKey: apiKey, ResendFrom: from}, nil
+	return out, nil
 }
 
 // SetSettings updates only the non-nil fields (nil = leave unchanged; a
 // pointer to "" clears the value).
-func (s *Store) SetSettings(resendAPIKey, resendFrom *string) error {
-	if resendAPIKey != nil {
-		if err := s.setSetting(keyResendAPIKey, *resendAPIKey); err != nil {
-			return err
+func (s *Store) SetSettings(resendAPIKey, resendFrom, posthogAPIKey, posthogHost *string) error {
+	for _, f := range []struct {
+		key   string
+		value *string
+	}{
+		{keyResendAPIKey, resendAPIKey},
+		{keyResendFrom, resendFrom},
+		{keyPostHogAPIKey, posthogAPIKey},
+		{keyPostHogHost, posthogHost},
+	} {
+		if f.value == nil {
+			continue
 		}
-	}
-	if resendFrom != nil {
-		if err := s.setSetting(keyResendFrom, *resendFrom); err != nil {
+		if err := s.setSetting(f.key, *f.value); err != nil {
 			return err
 		}
 	}

@@ -103,11 +103,11 @@ func (s *Server) handleConvert(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
 	data, filename, contentType, err := buildDoc(a, format)
 	if err != nil {
-		s.record(r, "convert", format, false, 0, started)
+		s.record(r, a, outcome{kind: "convert", format: format, started: started, failure: "render"})
 		errJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.record(r, "convert", format, true, int64(len(data)), started)
+	s.record(r, a, outcome{kind: "convert", format: format, ok: true, bytes: int64(len(data)), started: started})
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, filename))
 	w.WriteHeader(http.StatusOK)
@@ -135,18 +135,18 @@ func (s *Server) handleSendToKindle(w http.ResponseWriter, r *http.Request) {
 	started := time.Now()
 	data, filename, _, err := buildDoc(a, a.Format)
 	if err != nil {
-		s.record(r, "send", a.Format, false, 0, started)
+		s.record(r, a, outcome{kind: "send", format: a.Format, started: started, failure: "render"})
 		errJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if err := rc.SendAttachment(u.KindleEmail, a.Title, "Delivered by Tome.", filename, data); err != nil {
 		// Recorded as failed: from the reader's point of view nothing arrived,
 		// and a run that rendered but never delivered is the one worth seeing.
-		s.record(r, "send", a.Format, false, int64(len(data)), started)
+		s.record(r, a, outcome{kind: "send", format: a.Format, bytes: int64(len(data)), started: started, failure: "delivery"})
 		errJSON(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	s.record(r, "send", a.Format, true, int64(len(data)), started)
+	s.record(r, a, outcome{kind: "send", format: a.Format, ok: true, bytes: int64(len(data)), started: started})
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok": true, "method": "resend", "sentTo": u.KindleEmail,
 		"filename": filename, "bytes": len(data),
@@ -160,18 +160,92 @@ func looksLikeEmail(s string) bool {
 	return at > 0 && at < len(s)-3 && strings.Contains(s[at:], ".") && !strings.ContainsAny(s, " \t\n")
 }
 
-// record appends a conversion row. Bookkeeping must never fail a user's
-// request, so an error here is logged and swallowed rather than surfaced.
-func (s *Server) record(r *http.Request, kind, format string, ok bool, bytes int64, started time.Time) {
+// outcome is what a finished conversion is worth remembering about.
+type outcome struct {
+	kind    string // "convert" | "send"
+	format  string
+	ok      bool
+	bytes   int64
+	started time.Time
+	// failure is a category, never a message: an error string can carry a URL
+	// or a filesystem path, and neither belongs in analytics.
+	failure string
+}
+
+// record appends a conversion row and, if the operator configured PostHog,
+// mirrors it as an event. Bookkeeping must never fail a user's request, so
+// errors here are logged and swallowed rather than surfaced.
+//
+// Both sinks are fed from one place on purpose. If they were written
+// separately they would drift, and the drift that matters is analytics quietly
+// growing a field the privacy policy doesn't cover.
+func (s *Server) record(r *http.Request, a article.Article, o outcome) {
 	u := auth.UserFrom(r.Context())
 	if u == nil {
 		return
 	}
-	if format == "" {
-		format = defaultFormat()
+	if o.format == "" {
+		o.format = defaultFormat()
 	}
-	if err := s.Store.RecordConversion(u.ID, kind, format, ok, bytes,
-		time.Since(started).Milliseconds()); err != nil {
+	elapsed := time.Since(o.started).Milliseconds()
+
+	if err := s.Store.RecordConversion(u.ID, o.kind, o.format, o.ok, o.bytes, elapsed); err != nil {
 		log.Printf("record conversion: %v", err)
+	}
+
+	// Everything below is an enum, a number, or a bool. No title, no URL, no
+	// domain, no address — the same line the conversion row already holds,
+	// plus the render settings, which are what make this worth collecting:
+	// they say which devices and faces are actually used.
+	props := map[string]any{
+		"kind":        o.kind,
+		"format":      o.format,
+		"ok":          o.ok,
+		"duration_ms": elapsed,
+		"bytes":       bytesBucket(o.bytes),
+		"device":      normalizedDevice(a.Device),
+		"font":        normalizedFont(a.Font),
+		"color":       normalizedColor(a.Color),
+	}
+	if o.failure != "" {
+		props["failure"] = o.failure
+	}
+	s.analytics().Capture("conversion", analyticsID(u.ID), props)
+}
+
+// The three normalizers below collapse anything unrecognised to "other" rather
+// than passing a client-supplied string through to analytics. The server
+// already falls back to defaults when rendering (see pdfgen.rootAttrs); this
+// makes sure a junk value can't travel any further than that either.
+
+func normalizedDevice(v string) string {
+	switch v {
+	case "scribe", "scribe3", "paperwhite":
+		return v
+	case "":
+		return "default"
+	default:
+		return "other"
+	}
+}
+
+func normalizedFont(v string) string {
+	if _, ok := pdfgen.BodyFonts[v]; ok {
+		return v
+	}
+	if v == "" {
+		return "default"
+	}
+	return "other"
+}
+
+func normalizedColor(v string) string {
+	switch v {
+	case "bw", "color":
+		return v
+	case "":
+		return "default"
+	default:
+		return "other"
 	}
 }
