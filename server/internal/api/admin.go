@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -289,17 +291,27 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, _ *http.Request) {
 		errJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// The API key is write-only: report presence, never the value.
+	// API keys are write-only: report presence, never the value.
+	//
+	// posthogSource matters: when the environment supplies the key, anything
+	// stored here is inert, and reporting only "set=true" would be actively
+	// misleading about what the server is doing.
+	enabled, host, src := s.AnalyticsStatus()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"resendFrom":      set.ResendFrom,
-		"resendApiKeySet": set.ResendAPIKey != "",
+		"resendFrom":       set.ResendFrom,
+		"resendApiKeySet":  set.ResendAPIKey != "",
+		"posthogHost":      host,
+		"posthogApiKeySet": enabled,
+		"posthogSource":    string(src),
 	})
 }
 
 func (s *Server) adminPutSettings(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		ResendAPIKey *string `json:"resendApiKey"` // nil = unchanged, "" = clear
-		ResendFrom   *string `json:"resendFrom"`
+		ResendAPIKey  *string `json:"resendApiKey"` // nil = unchanged, "" = clear
+		ResendFrom    *string `json:"resendFrom"`
+		PostHogAPIKey *string `json:"posthogApiKey"`
+		PostHogHost   *string `json:"posthogHost"`
 	}
 	if !decodeJSON(w, r, maxAuthBody, &req) {
 		return
@@ -308,7 +320,26 @@ func (s *Server) adminPutSettings(w http.ResponseWriter, r *http.Request) {
 		errJSON(w, http.StatusBadRequest, "resendFrom doesn't look like an email address")
 		return
 	}
-	if err := s.Store.SetSettings(req.ResendAPIKey, req.ResendFrom); err != nil {
+	// Analytics is the operator's own project; a typo'd host would silently
+	// send their data somewhere they didn't intend, so require a real URL.
+	if req.PostHogHost != nil && *req.PostHogHost != "" {
+		u, err := url.Parse(*req.PostHogHost)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errJSON(w, http.StatusBadRequest,
+				"posthogHost must be a full URL, e.g. https://eu.i.posthog.com")
+			return
+		}
+	}
+	// Storing is still allowed while the environment is in charge — the stored
+	// value becomes the fallback if the env var is later removed — but say so,
+	// because otherwise this call looks like it did nothing.
+	if (req.PostHogAPIKey != nil || req.PostHogHost != nil) && s.PostHogEnvKey != "" {
+		log.Printf("admin: PostHog settings stored, but TOME_POSTHOG_API_KEY is set " +
+			"in the environment and takes precedence")
+	}
+	if err := s.Store.SetSettings(
+		req.ResendAPIKey, req.ResendFrom, req.PostHogAPIKey, req.PostHogHost,
+	); err != nil {
 		errJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}

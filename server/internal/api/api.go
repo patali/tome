@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/patali/tome/server/internal/article"
 	"github.com/patali/tome/server/internal/auth"
 	"github.com/patali/tome/server/internal/epubgen"
 	"github.com/patali/tome/server/internal/pdfgen"
+	"github.com/patali/tome/server/internal/posthog"
 	"github.com/patali/tome/server/internal/resend"
 	"github.com/patali/tome/server/internal/store"
 )
@@ -23,8 +25,19 @@ const maxBody = 8 << 20 // 8 MiB for article payloads
 const maxAuthBody = 4 << 10
 
 type Server struct {
-	Store         *store.Store
-	ResendBase    string // override for tests; "" = resend.DefaultBaseURL
+	Store       *store.Store
+	ResendBase  string // override for tests; "" = resend.DefaultBaseURL
+	PostHogBase string // override for tests; "" = posthog.DefaultHost
+
+	// PostHogEnvKey / PostHogEnvHost carry deploy-time analytics config from
+	// the environment (TOME_POSTHOG_API_KEY / TOME_POSTHOG_HOST).
+	//
+	// Set for stacks that declare their configuration in a compose .env rather
+	// than through the admin CLI — it survives a wiped data volume and keeps
+	// the deployment self-describing.
+	PostHogEnvKey  string
+	PostHogEnvHost string
+
 	ExtensionPath string // extension zip (or source dir) served at /extension.zip
 	PrivacyPath   string // PRIVACY.md, served at /privacy
 	limiter       *auth.Limiter
@@ -41,6 +54,21 @@ func New(st *store.Store, resendBase string) *Server {
 		// email a couple of times before it starts refusing them.
 		inviteLimiter: auth.NewLimiter(5, time.Hour),
 	}
+}
+
+// TrackServerStart records that this build came up, so an operator can see in
+// their own analytics when a deploy landed and whether PDF rendering is
+// actually available on the machine — the single most common way a self-hosted
+// server is quietly degraded (no Chrome, so everything silently falls to EPUB).
+//
+// Called by the serve command rather than from New so that CLI subcommands and
+// tests don't report themselves as server starts.
+func (s *Server) TrackServerStart() {
+	s.analytics().Capture("server_started", "server", map[string]any{
+		"version":        Version,
+		"pdf_available":  pdfgen.Available(),
+		"default_format": defaultFormat(),
+	})
 }
 
 // Handler builds the full route table (Go 1.22 method patterns handle 405s).
@@ -76,6 +104,87 @@ func (s *Server) resendClient() (resend.Client, error) {
 		return resend.Client{}, err
 	}
 	return resend.Client{APIKey: set.ResendAPIKey, From: set.ResendFrom, BaseURL: s.ResendBase}, nil
+}
+
+// AnalyticsSource says where the PostHog configuration came from, so an
+// operator is never left wondering why `settings set` appeared to do nothing.
+type AnalyticsSource string
+
+const (
+	AnalyticsOff         AnalyticsSource = "unset"
+	AnalyticsFromEnv     AnalyticsSource = "environment"
+	AnalyticsFromStorage AnalyticsSource = "settings"
+)
+
+// analyticsConfig resolves the effective PostHog configuration.
+//
+// The environment wins outright, and when it does it supplies *both* the key
+// and the host — never a mix of env key and stored host. A deployment that
+// declares analytics in its compose .env should be readable from that file
+// alone; having half the answer live in a database nobody thought to check is
+// exactly the kind of thing that wastes an afternoon.
+func (s *Server) analyticsConfig() (key, host string, src AnalyticsSource) {
+	if s.PostHogEnvKey != "" {
+		return s.PostHogEnvKey, s.PostHogEnvHost, AnalyticsFromEnv
+	}
+	set, err := s.Store.GetSettings()
+	if err != nil || set.PostHogAPIKey == "" {
+		return "", "", AnalyticsOff
+	}
+	return set.PostHogAPIKey, set.PostHogHost, AnalyticsFromStorage
+}
+
+// analytics snapshots the effective configuration into a PostHog client. A
+// settings read that fails yields a disabled client rather than an error:
+// analytics is never worth failing a request over.
+func (s *Server) analytics() posthog.Client {
+	key, host, _ := s.analyticsConfig()
+	if s.PostHogBase != "" {
+		host = s.PostHogBase
+	}
+	return posthog.Client{APIKey: key, Host: host}
+}
+
+// AnalyticsStatus reports the effective configuration for the boot log. The key
+// is never returned — only whether there is one, and where it came from.
+func (s *Server) AnalyticsStatus() (enabled bool, host string, src AnalyticsSource) {
+	key, host, src := s.analyticsConfig()
+	if host == "" {
+		host = posthog.DefaultHost
+	}
+	return key != "", host, src
+}
+
+// analyticsID is the pseudonymous subject of an event.
+//
+// A bare account number, never an email — PostHog has no way to resolve it, and
+// person profiles are disabled anyway, so it serves only to distinguish "ten
+// conversions by one person" from "one each by ten". The operator can already
+// see which account converted what in their own database; this discloses
+// strictly less than that.
+func analyticsID(userID int64) string {
+	return "u" + strconv.FormatInt(userID, 10)
+}
+
+// bytesBucket coarsens a document size into an order of magnitude.
+//
+// Exact byte counts are close to a fingerprint — a specific size, at a specific
+// minute, identifies a specific article to anyone holding a copy of it. The
+// useful signal here is "are people sending long reads or short ones", and a
+// bucket carries that without carrying the rest.
+func bytesBucket(n int64) string {
+	switch {
+	case n <= 0:
+		return "none"
+	case n < 256<<10:
+		return "<256k"
+	case n < 1<<20:
+		return "256k-1m"
+	case n < 4<<20:
+		return "1m-4m"
+	default:
+		return ">4m"
+	}
 }
 
 // cors allows the browser extension (a chrome-extension:// origin) to call

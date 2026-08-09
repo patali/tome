@@ -106,9 +106,72 @@ tome admin invites create [--email HINT] [--ttl 168h] [--send]
 tome admin invites list | invites delete CODE
 tome admin users list | users disable ID | users enable ID | users rotate-key ID
 tome admin settings get | settings set [--resend-api-key K] [--resend-from ADDR]
+                                      [--posthog-api-key K] [--posthog-host URL]
 ```
 
 Lost the admin key? `container exec -u tome tome tome init-admin --rotate-key`.
+
+## Analytics (optional, off by default)
+
+The server always keeps its own conversion records — that is what
+`tome admin conversions` reads, and it needs nothing configured. Those answer
+*is my server healthy*.
+
+If you also want to know *what to build next* — which devices people target,
+which body faces get used, how often a render fails — the server can mirror
+those same records to a [PostHog](https://posthog.com) project:
+
+Two ways to configure it, whichever suits your deployment.
+
+**Environment** — best when the stack is declared in a compose `.env`, because
+it survives a wiped data volume and the deployment stays readable from one file:
+
+```bash
+TOME_POSTHOG_API_KEY=phc_xxxxxxxx
+TOME_POSTHOG_HOST=https://eu.i.posthog.com   # optional; US cloud is the default
+```
+
+Remember to pass it through in `compose.yaml`:
+
+```yaml
+    environment:
+      TOME_POSTHOG_API_KEY: ${TOME_POSTHOG_API_KEY}
+```
+
+**Admin CLI** — best for turning it on or off without a redeploy:
+
+```bash
+tome admin settings set --posthog-api-key phc_xxxxxxxx
+tome admin settings set --posthog-host https://eu.i.posthog.com   # optional
+tome admin settings set --posthog-api-key ""                      # turn it off
+```
+
+`TOME_POSTHOG_API_KEY` **wins** when both are present, and when it does it
+supplies the host too — a stored host is never mixed in, so a stack that
+declares analytics in its `.env` can be understood from that file alone.
+`tome admin settings get` reports which source is in effect, and so does the
+boot log, so a `settings set` that is being overridden never looks like it
+silently failed.
+
+It is **your** PostHog project. Nothing reports to the authors of Tome, and the
+server states at boot whether analytics is on and where it points.
+
+Events are `conversion`, `invite_redeemed`, and `server_started`. A conversion
+carries the kind, format, success, duration, a size *band*, and the chosen
+device / font / colour — plus a failure *category* when it fails.
+
+What is deliberately not sent, and cannot be: the article, its title, its URL,
+its domain, any email address, or any reader's IP. Capture is server-side, so
+PostHog only ever sees the server's address; GeoIP is disabled and person
+profiles are switched off, so no per-person record is built. The client
+[refuses any property value](internal/posthog/posthog.go) that looks like a URL
+or an email address, so this holds even if a future call site gets careless.
+
+Users are an opaque account number, meaningless outside this server's database.
+
+Turning this on changes what a reader's data does, so
+[`PRIVACY.md`](../PRIVACY.md) describes it — under "If the operator turned on
+analytics". If you enable it, that section is now describing you.
 
 ## Endpoints
 
@@ -147,6 +210,9 @@ Article JSON: `{ title, byline, publishedTime, content (HTML), url, device?, for
 | `TOME_CHROME` | auto-detected | Chrome-family binary for PDF rendering |
 | `TOME_CHROME_FLAGS` | — (`--no-sandbox --disable-dev-shm-usage` in the image) | extra Chrome flags |
 | `TOME_RESEND_BASE_URL` | `https://api.resend.com` | override for testing |
+| `TOME_POSTHOG_API_KEY` | — | PostHog project key (`phc_…`). Enables analytics and **overrides** the stored setting |
+| `TOME_POSTHOG_HOST` | `https://us.i.posthog.com` | PostHog host, used only alongside `TOME_POSTHOG_API_KEY` |
+| `TOME_POSTHOG_BASE_URL` | — | override for testing; wins over everything |
 | `TOME_EXTENSION_PATH` | `/opt/tome/extension.zip` in the image, else `../extension` | what `/extension.zip` serves (zip file or source dir) |
 | `TOME_SERVER_URL`, `TOME_ADMIN_KEY` | — | defaults for the `tome admin` CLI |
 

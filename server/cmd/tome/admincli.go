@@ -211,13 +211,16 @@ func runAdminCLI(args []string) {
 		fmt.Printf("dismissed %v\n", out["email"])
 
 	case "settings get":
-		out := c.do("GET", "/admin/settings", nil)
-		fmt.Printf("resend from:    %v\nresend api key: set=%v\n", out["resendFrom"], out["resendApiKeySet"])
+		printSettings(c.do("GET", "/admin/settings", nil))
 
 	case "settings set":
 		sub := flag.NewFlagSet("settings set", flag.ExitOnError)
 		apiKey := sub.String("resend-api-key", "", "Resend API key (re_...)")
 		from := sub.String("resend-from", "", "verified sender address, e.g. tome@yourdomain.com")
+		phKey := sub.String("posthog-api-key", "",
+			"PostHog project API key (phc_...) — enables product analytics; empty string clears it")
+		phHost := sub.String("posthog-host", "",
+			"PostHog host, e.g. https://eu.i.posthog.com (default https://us.i.posthog.com)")
 		_ = sub.Parse(rest)
 		body := map[string]any{}
 		if *apiKey != "" {
@@ -226,11 +229,21 @@ func runAdminCLI(args []string) {
 		if *from != "" {
 			body["resendFrom"] = *from
 		}
+		// Passed explicitly so that --posthog-api-key="" turns analytics off,
+		// rather than being indistinguishable from not mentioning the flag.
+		sub.Visit(func(f *flag.Flag) {
+			switch f.Name {
+			case "posthog-api-key":
+				body["posthogApiKey"] = *phKey
+			case "posthog-host":
+				body["posthogHost"] = *phHost
+			}
+		})
 		if len(body) == 0 {
-			fatal("nothing to set (use --resend-api-key / --resend-from)")
+			fatal("nothing to set (use --resend-api-key / --resend-from / " +
+				"--posthog-api-key / --posthog-host)")
 		}
-		out := c.do("PUT", "/admin/settings", body)
-		fmt.Printf("resend from:    %v\nresend api key: set=%v\n", out["resendFrom"], out["resendApiKeySet"])
+		printSettings(c.do("PUT", "/admin/settings", body))
 
 	default:
 		fmt.Fprintf(os.Stderr, "unknown admin command %q %q\n\n", noun, verb)
@@ -326,4 +339,28 @@ func warnBase(out map[string]any) {
 	if w, _ := out["warning"].(string); w != "" {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
+}
+
+// printSettings renders the settings blob returned by GET/PUT /admin/settings.
+// API keys are reported as set/unset — the server never echoes their values.
+func printSettings(out map[string]any) {
+	fmt.Printf("resend from:     %v\n", out["resendFrom"])
+	fmt.Printf("resend api key:  set=%v\n", out["resendApiKeySet"])
+	host := out["posthogHost"]
+	if host == nil || host == "" {
+		host = "(default)"
+	}
+	fmt.Printf("posthog host:    %v\n", host)
+	fmt.Printf("posthog api key: set=%v", out["posthogApiKeySet"])
+	switch out["posthogSource"] {
+	case "environment":
+		// Without this line, `settings set --posthog-api-key` looks like it
+		// silently failed when the environment is the thing in charge.
+		fmt.Print("  — from TOME_POSTHOG_API_KEY (environment wins over stored settings)")
+	case "settings":
+		fmt.Print("  — from stored settings")
+	default:
+		fmt.Print("  — analytics off")
+	}
+	fmt.Println()
 }

@@ -1,6 +1,6 @@
 # Tome — Privacy Policy
 
-_Last updated: 1 August 2026_
+_Last updated: 9 August 2026_
 
 Tome is self-hosted. The browser extension talks to **one server: the one you
 enter in its settings.** There is no Tome company, no hosted service, and no
@@ -72,6 +72,35 @@ If email delivery is configured, the operator supplies a
 your Kindle address through Resend. Amazon then receives it, as it must for
 Send-to-Kindle to work at all.
 
+### If the operator turned on analytics
+
+A server can optionally send a copy of that same record to
+[PostHog](https://posthog.com), so the operator can see which devices and
+reading settings are actually used and decide what to work on. **It is off
+unless the operator sets a key**, and it is **their own** PostHog project — not
+one belonging to the authors of Tome, who receive nothing either way.
+
+What an event carries: whether it was a preview or a send, the format, whether
+it succeeded, how long it took, a **size band** rather than an exact byte count
+(`<256k`, `256k–1m`, …), your chosen device, body font and colour mode, and — if
+it failed — a **category** such as `render` or `delivery`, never the error text.
+Two other events exist: that *someone* redeemed an invite, and that the server
+restarted.
+
+What an event never carries: the title, the URL, the domain, any part of the
+article, your email address, your Kindle address, or your IP address. Events are
+sent by the server, so PostHog sees the server's address and never yours, and
+location lookup is switched off. You appear as an opaque account number with no
+meaning outside the operator's own database, and **person profiles are disabled**,
+so PostHog builds no per-person record.
+
+Everything in an event is a number or a fixed value from a known list. The
+server refuses to send any value that looks like a URL or an email address, so
+this stays true even if the code changes.
+
+Nothing here is new information about you — it is the conversion record above,
+which the operator can already read, forwarded to the tool they use to read it.
+
 ## If you ask for an invite
 
 A server may put a form on its landing page for requesting one. If you use it,
@@ -92,7 +121,10 @@ an invite was sent.
 **There are none in the extension.** No analytics, no telemetry, no crash
 reporting, no advertising or tracking SDK, no CDN. Fonts are bundled in the
 package rather than fetched from Google Fonts, specifically so that opening a
-preview doesn't disclose to a third party that you're reading something.
+preview doesn't disclose to a third party that you're reading something. Nothing
+in your browser reports anywhere but the one server you configured — and that
+remains true whether or not your operator turned on the server-side analytics
+described above.
 
 **A server's website is separate from the extension**, and what it involves
 depends on how the operator hosts it. A server reachable over the public
@@ -103,10 +135,18 @@ runs in your browser and comes from whoever provides it. Neither is analytics,
 and neither is part of the extension; both follow from the site being publicly
 reachable. Ask your operator what their deployment uses.
 
-Downstream of your server, exactly two services are involved, and only if the
-operator set up delivery: **Resend**, which transmits the email, and
-**Amazon**, which receives the document on your Kindle. Both are inherent to
-emailing a file to a Kindle.
+Downstream of your server, at most three services are involved, each only if the
+operator set it up:
+
+- **Resend**, which transmits the email, and **Amazon**, which receives the
+  document on your Kindle. Both are inherent to emailing a file to a Kindle.
+- **PostHog**, only if the operator turned on analytics, and only the
+  conversion records described under "If the operator turned on analytics"
+  above — never the article, its title, its address, or yours. It is the
+  operator's own PostHog project.
+
+Ask your operator whether analytics is on; a server states it in its startup
+log, so they will know.
 
 ## What is never done
 
@@ -154,6 +194,7 @@ page.
 |---|---|
 | Running your account, converting articles, delivering them to your Kindle | Performance of the contract you enter into by redeeming an invite |
 | Keeping a 30-day record that a conversion happened | Legitimate interests — seeing load and failures on a server someone runs for free |
+| Sending that same record to the operator's analytics, if they enabled it | Legitimate interests — understanding which features are used, on pseudonymous records that identify no article and no person |
 | Handling an invite request | Legitimate interests — answering someone who asked to be let in |
 | Rate limiting and the anti-spam challenge | Legitimate interests — keeping the server usable |
 
@@ -163,6 +204,7 @@ page.
 |---|---|
 | Articles you convert | Not kept. Rendered in a temporary directory that is deleted after sending |
 | The record that a conversion happened (no title or URL) | 30 days |
+| The same record in the operator's analytics, if enabled | For however long their PostHog project is set to keep it — ask them |
 | Your email and Kindle address, and the hash of your API key | As long as your account exists; deleted when it is |
 | Unused invite codes | Until used or expired |
 | Invite requests | Up to three months |
@@ -170,8 +212,10 @@ page.
 **Where it goes.** The server is run by an individual and may be anywhere,
 including outside the EEA or UK — commonly on a machine in the operator's own
 home. If delivery is configured, Resend and Amazon receive your Kindle address
-and the document, and both are US companies. Ask your operator where their
-server is if it matters to you.
+and the document, and both are US companies. If analytics is enabled, the
+conversion records go to the operator's PostHog project, which may be PostHog's
+US cloud, its EU cloud, or an instance they host themselves. Ask your operator
+where their server is, and which of these they use, if it matters to you.
 
 **Your rights.** You have the right to access your data, to correct it, to have
 it erased, to restrict or object to its processing, and to receive it in a
