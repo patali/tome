@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -291,11 +292,17 @@ func (s *Server) adminGetSettings(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	// API keys are write-only: report presence, never the value.
+	//
+	// posthogSource matters: when the environment supplies the key, anything
+	// stored here is inert, and reporting only "set=true" would be actively
+	// misleading about what the server is doing.
+	enabled, host, src := s.AnalyticsStatus()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"resendFrom":       set.ResendFrom,
 		"resendApiKeySet":  set.ResendAPIKey != "",
-		"posthogHost":      set.PostHogHost,
-		"posthogApiKeySet": set.PostHogAPIKey != "",
+		"posthogHost":      host,
+		"posthogApiKeySet": enabled,
+		"posthogSource":    string(src),
 	})
 }
 
@@ -322,6 +329,13 @@ func (s *Server) adminPutSettings(w http.ResponseWriter, r *http.Request) {
 				"posthogHost must be a full URL, e.g. https://eu.i.posthog.com")
 			return
 		}
+	}
+	// Storing is still allowed while the environment is in charge — the stored
+	// value becomes the fallback if the env var is later removed — but say so,
+	// because otherwise this call looks like it did nothing.
+	if (req.PostHogAPIKey != nil || req.PostHogHost != nil) && s.PostHogEnvKey != "" {
+		log.Printf("admin: PostHog settings stored, but TOME_POSTHOG_API_KEY is set " +
+			"in the environment and takes precedence")
 	}
 	if err := s.Store.SetSettings(
 		req.ResendAPIKey, req.ResendFrom, req.PostHogAPIKey, req.PostHogHost,
