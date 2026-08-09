@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Build-time defaults from Config.xcconfig. Settings can override these
+	     for the app itself; the share extension can only ever see the built-in
+	     values (no App Groups on a free account). -->
+	<key>TOMEServerURL</key>
+	<string>$(TOME_SERVER_URL)</string>
+	<key>TOMEAPIKey</key>
+	<string>$(TOME_API_KEY)</string>
+
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+
+	<!-- How the share extension hands over a bare link (from X, Reddit, …) that
+	     it can't read itself. See ShareViewController.handOff. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tome</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Tome uses only HTTPS via the system stack, which is exempt. Declaring it
+	     here means App Store Connect stops asking on every upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<!-- Only reached if the configured server is a plain-HTTP address on the
+	     local network. Without this string iOS silently refuses the connection
+	     on first attempt rather than prompting. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Tome connects to a Tome server running on your local network, if that's the address you configured.</string>
+
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Deliberately NOT NSAllowsArbitraryLoads. Public sites are HTTPS, and
+		     so is a deployed Tome server. This exception exists only so a server
+		     running plain HTTP on your own LAN (a Pi, a container) stays
+		     reachable during development. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

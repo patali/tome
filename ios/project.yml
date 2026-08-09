@@ -1,0 +1,115 @@
+# XcodeGen manifest. `xcodegen generate` builds Tome.xcodeproj from this, which
+# is why no .xcodeproj is committed — a generated project can't produce the
+# pbxproj merge conflicts a checked-in one eventually does.
+#
+# Run ./Scripts/build-extraction-js.sh before generating: the extraction bundle
+# under Resources/Generated is derived from the browser extension's sources and
+# has to exist for XcodeGen to reference it.
+
+name: Tome
+
+options:
+  bundleIdPrefix: com.pixelsyrup
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  # Xcode's own file-system-synchronized groups would fight the generated
+  # resources folder; explicit groups keep the bundle layout predictable.
+  generateEmptyDirectories: false
+
+# Server URL, API key, and bundle ID prefix all come from here. Gitignored —
+# see Config.xcconfig.example.
+configFiles:
+  Debug: Config.xcconfig
+  Release: Config.xcconfig
+
+# Without an explicit scheme, Xcode is left to autocreate them and picks up only
+# the extension — leaving no way to run the actual app. Declaring it here also
+# makes `xcodebuild -scheme Tome` work from the command line.
+schemes:
+  Tome:
+    build:
+      targets:
+        Tome: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    TARGETED_DEVICE_FAMILY: "1,2" # iPhone + iPad
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: $(TOME_DEVELOPMENT_TEAM)
+    GENERATE_INFOPLIST_FILE: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: NO # the build phase reads ../extension
+
+targets:
+  # ------------------------------------------------------------- container --
+  Tome:
+    type: application
+    platform: iOS
+    sources:
+      - path: Shared
+      - path: Tome
+      # A group, not a folder reference: the files must land at the bundle root
+      # so Bundle.main.url(forResource:) finds them.
+      - path: Resources/Generated
+        buildPhase: resources
+        createIntermediateGroups: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(TOME_BUNDLE_ID)
+        INFOPLIST_FILE: Tome/Info.plist
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      # Embeds the extension into the app's PlugIns directory.
+      - target: TomeShare
+    preBuildScripts:
+      - name: Build extraction bundle
+        script: "\"$SRCROOT/Scripts/build-extraction-js.sh\""
+        # The inputs live outside SRCROOT (../extension), so Xcode's dependency
+        # analysis can't see them change. Always run; the script itself is cheap
+        # and only rewrites its outputs when they actually differ.
+        basedOnDependencyAnalysis: false
+
+  # ------------------------------------------------------- share extension --
+  TomeShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Shared
+      - path: TomeShare
+      # The extension needs its own copy: iOS loads TomeExtraction.js from the
+      # *extension's* bundle for NSExtensionJavaScriptPreprocessingFile, and
+      # reader.css rides along in the payload.
+      - path: Resources/Generated
+        buildPhase: resources
+        createIntermediateGroups: false
+    settings:
+      base:
+        # Must be prefixed by the container app's identifier or iOS refuses to
+        # install the pair.
+        PRODUCT_BUNDLE_IDENTIFIER: $(TOME_BUNDLE_ID).share
+        INFOPLIST_FILE: TomeShare/Info.plist
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1.0"
+    preBuildScripts:
+      # Also here, and not only on the app target: this extension is a
+      # *dependency* of Tome, so Xcode builds it FIRST — before the app's own
+      # prebuild script has had a chance to run. Without this, a clean checkout
+      # fails looking for a TomeExtraction.js that hasn't been generated yet.
+      # The script is idempotent, so running it twice per build costs nothing.
+      - name: Build extraction bundle
+        script: "\"$SRCROOT/Scripts/build-extraction-js.sh\""
+        basedOnDependencyAnalysis: false
