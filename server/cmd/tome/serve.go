@@ -8,6 +8,7 @@ import (
 
 	"github.com/patali/tome/server/internal/api"
 	"github.com/patali/tome/server/internal/pdfgen"
+	"github.com/patali/tome/server/internal/posthog"
 	"github.com/patali/tome/server/internal/store"
 )
 
@@ -61,6 +62,7 @@ func runServe(_ []string) {
 	defer st.Close()
 
 	srv := api.New(st, os.Getenv("TOME_RESEND_BASE_URL"))
+	srv.PostHogBase = os.Getenv("TOME_POSTHOG_BASE_URL")
 	srv.ExtensionPath = extensionPath()
 	srv.PrivacyPath = privacyPath()
 
@@ -80,6 +82,20 @@ func runServe(_ []string) {
 	default:
 		log.Printf("delivery: Resend not configured (tome admin settings set); Mail.app fallback for admin on macOS only")
 	}
+	// Stated at boot because it is the one setting that sends data to a third
+	// party. An operator should never have to read the database to find out
+	// whether their server is talking to PostHog.
+	if err == nil {
+		if set.PostHogAPIKey != "" {
+			host := set.PostHogHost
+			if host == "" {
+				host = posthog.DefaultHost
+			}
+			log.Printf("analytics: PostHog enabled, sending to %s", host)
+		} else {
+			log.Printf("analytics: off (local conversion records only)")
+		}
+	}
 
 	// Worth a line at boot because the failure is silent and lands on someone
 	// else: pages served through a proxy get the right host from the request,
@@ -91,6 +107,7 @@ func runServe(_ []string) {
 	}
 
 	startSweeper(st)
+	srv.TrackServerStart()
 
 	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
 }

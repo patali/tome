@@ -46,6 +46,11 @@ func (s *Server) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Growth, with nothing about who joined: no email, no invite code, not even
+	// the new account's id — a bare count of "someone redeemed" is the whole
+	// signal, and the operator can see the rest in their own database.
+	s.analytics().Capture("invite_redeemed", "server", nil)
+
 	set, err := s.Store.GetSettings()
 	if err != nil {
 		set = store.Settings{} // account exists; don't fail the response over this
