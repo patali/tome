@@ -25,9 +25,19 @@ const maxBody = 8 << 20 // 8 MiB for article payloads
 const maxAuthBody = 4 << 10
 
 type Server struct {
-	Store         *store.Store
-	ResendBase    string // override for tests; "" = resend.DefaultBaseURL
-	PostHogBase   string // override for tests; "" = posthog.DefaultHost
+	Store       *store.Store
+	ResendBase  string // override for tests; "" = resend.DefaultBaseURL
+	PostHogBase string // override for tests; "" = posthog.DefaultHost
+
+	// PostHogEnvKey / PostHogEnvHost carry deploy-time analytics config from
+	// the environment (TOME_POSTHOG_API_KEY / TOME_POSTHOG_HOST).
+	//
+	// Set for stacks that declare their configuration in a compose .env rather
+	// than through the admin CLI — it survives a wiped data volume and keeps
+	// the deployment self-describing.
+	PostHogEnvKey  string
+	PostHogEnvHost string
+
 	ExtensionPath string // extension zip (or source dir) served at /extension.zip
 	PrivacyPath   string // PRIVACY.md, served at /privacy
 	limiter       *auth.Limiter
@@ -96,19 +106,53 @@ func (s *Server) resendClient() (resend.Client, error) {
 	return resend.Client{APIKey: set.ResendAPIKey, From: set.ResendFrom, BaseURL: s.ResendBase}, nil
 }
 
-// analytics snapshots the stored settings into a PostHog client. A settings
-// read that fails yields a disabled client rather than an error: analytics is
-// never worth failing a request over.
-func (s *Server) analytics() posthog.Client {
-	set, err := s.Store.GetSettings()
-	if err != nil {
-		return posthog.Client{}
+// AnalyticsSource says where the PostHog configuration came from, so an
+// operator is never left wondering why `settings set` appeared to do nothing.
+type AnalyticsSource string
+
+const (
+	AnalyticsOff         AnalyticsSource = "unset"
+	AnalyticsFromEnv     AnalyticsSource = "environment"
+	AnalyticsFromStorage AnalyticsSource = "settings"
+)
+
+// analyticsConfig resolves the effective PostHog configuration.
+//
+// The environment wins outright, and when it does it supplies *both* the key
+// and the host — never a mix of env key and stored host. A deployment that
+// declares analytics in its compose .env should be readable from that file
+// alone; having half the answer live in a database nobody thought to check is
+// exactly the kind of thing that wastes an afternoon.
+func (s *Server) analyticsConfig() (key, host string, src AnalyticsSource) {
+	if s.PostHogEnvKey != "" {
+		return s.PostHogEnvKey, s.PostHogEnvHost, AnalyticsFromEnv
 	}
-	host := set.PostHogHost
+	set, err := s.Store.GetSettings()
+	if err != nil || set.PostHogAPIKey == "" {
+		return "", "", AnalyticsOff
+	}
+	return set.PostHogAPIKey, set.PostHogHost, AnalyticsFromStorage
+}
+
+// analytics snapshots the effective configuration into a PostHog client. A
+// settings read that fails yields a disabled client rather than an error:
+// analytics is never worth failing a request over.
+func (s *Server) analytics() posthog.Client {
+	key, host, _ := s.analyticsConfig()
 	if s.PostHogBase != "" {
 		host = s.PostHogBase
 	}
-	return posthog.Client{APIKey: set.PostHogAPIKey, Host: host}
+	return posthog.Client{APIKey: key, Host: host}
+}
+
+// AnalyticsStatus reports the effective configuration for the boot log. The key
+// is never returned — only whether there is one, and where it came from.
+func (s *Server) AnalyticsStatus() (enabled bool, host string, src AnalyticsSource) {
+	key, host, src := s.analyticsConfig()
+	if host == "" {
+		host = posthog.DefaultHost
+	}
+	return key != "", host, src
 }
 
 // analyticsID is the pseudonymous subject of an event.

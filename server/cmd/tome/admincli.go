@@ -352,7 +352,14 @@ func printSettings(out map[string]any) {
 	}
 	fmt.Printf("posthog host:    %v\n", host)
 	fmt.Printf("posthog api key: set=%v", out["posthogApiKeySet"])
-	if out["posthogApiKeySet"] != true {
+	switch out["posthogSource"] {
+	case "environment":
+		// Without this line, `settings set --posthog-api-key` looks like it
+		// silently failed when the environment is the thing in charge.
+		fmt.Print("  — from TOME_POSTHOG_API_KEY (environment wins over stored settings)")
+	case "settings":
+		fmt.Print("  — from stored settings")
+	default:
 		fmt.Print("  — analytics off")
 	}
 	fmt.Println()
